@@ -30,7 +30,7 @@ class Player:
             self.vel_x = self.speed
         if keys[pygame.K_UP]:
             lane_delta -= self.lane_speed
-        if keys[pygame.K_DOWN]:
+        elif keys[pygame.K_DOWN]:
             lane_delta += self.lane_speed
 
         if keys[pygame.K_SPACE] and self.on_ground:

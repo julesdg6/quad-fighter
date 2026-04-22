@@ -1,3 +1,6 @@
+KNOCKBACK_DISTANCE = 20
+
+
 def check_attack_collision(player, enemy):
     attack_rect = player.get_attack_rect()
     if attack_rect is None:
@@ -6,8 +9,8 @@ def check_attack_collision(player, enemy):
 
 def apply_knockback(target, source):
     if source.x > target.x:
-        target.x += 20
+        target.x += KNOCKBACK_DISTANCE
     else:
-        target.x -= 20
+        target.x -= KNOCKBACK_DISTANCE
     target.hit_stun_timer = 8
     target.vel_y = -10

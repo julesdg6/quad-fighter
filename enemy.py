@@ -1,4 +1,8 @@
 import pygame
+
+LANE_CHASE_THRESHOLD = 4
+LANE_CHASE_SPEED = 1.5
+
 class Enemy:
     def __init__(self, x, y, screen_width, screen_height):
         self.x = float(x)
@@ -27,10 +31,10 @@ class Enemy:
         else:
             self.vel_x = 0
 
-        if player.ground_y > self.ground_y + 4:
-            self.ground_y += 1.5
-        elif player.ground_y < self.ground_y - 4:
-            self.ground_y -= 1.5
+        if player.ground_y > self.ground_y + LANE_CHASE_THRESHOLD:
+            self.ground_y += LANE_CHASE_SPEED
+        elif player.ground_y < self.ground_y - LANE_CHASE_THRESHOLD:
+            self.ground_y -= LANE_CHASE_SPEED
 
         self.vel_y += self.gravity
         self.x += self.vel_x
