@@ -24,17 +24,18 @@ class Enemy:
         if self.hit_stun_timer > 0:
             self.hit_stun_timer -= 1
             self.vel_x = 0
-        elif player.x > self.x + 4:
-            self.vel_x = self.speed
-        elif player.x < self.x - 4:
-            self.vel_x = -self.speed
         else:
-            self.vel_x = 0
+            if player.x > self.x + 4:
+                self.vel_x = self.speed
+            elif player.x < self.x - 4:
+                self.vel_x = -self.speed
+            else:
+                self.vel_x = 0
 
-        if player.ground_y > self.ground_y + LANE_CHASE_THRESHOLD:
-            self.ground_y += LANE_CHASE_SPEED
-        elif player.ground_y < self.ground_y - LANE_CHASE_THRESHOLD:
-            self.ground_y -= LANE_CHASE_SPEED
+            if player.ground_y > self.ground_y + LANE_CHASE_THRESHOLD:
+                self.ground_y += LANE_CHASE_SPEED
+            elif player.ground_y < self.ground_y - LANE_CHASE_THRESHOLD:
+                self.ground_y -= LANE_CHASE_SPEED
 
         self.vel_y += self.gravity
         self.x += self.vel_x
