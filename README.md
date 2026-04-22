@@ -10,9 +10,9 @@ pip install -r requirements.txt
 
 ## Controls
 
-- Arrow keys: Move left/right (lane change for depth)
+- Arrow keys: Move (left/right and up/down lane depth)
 - Space: Jump
-- A: Attack
+- Z: Attack
 
 ## Running the Game
 
@@ -26,6 +26,7 @@ python main.py
 - Basic enemy AI (chase player)
 - Simple combat system with attack collision detection
 - Knockback mechanics
+- Health values and simple HUD
 - Basic hitbox visualization
 - 60 FPS game loop
 
