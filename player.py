@@ -7,19 +7,40 @@ SHADOW_JUMP_DIVISOR = 120.0
 SHADOW_OUTER_INFLATE_X = 6
 SHADOW_OUTER_INFLATE_Y = 2
 SHADOW_OUTER_COLOR = (30, 30, 30)
-ATTACK_ANTICIPATION_FRAMES = 3
-ATTACK_STRIKE_FRAMES = 3
-ATTACK_RECOVERY_FRAMES = 5
 POST_ATTACK_FRAMES = 2
-ATTACK_COOLDOWN_FRAMES = 20
+
+ATTACK_PROFILES = {
+    "primary": {
+        "anticipation": 2,
+        "strike": 3,
+        "recovery": 4,
+        "cooldown": 14,
+        "damage": 10,
+        "attack_width": 30,
+        "attack_height": 24,
+        "attack_offset": 3,
+        "knockback": 28,
+    },
+    "secondary": {
+        "anticipation": 5,
+        "strike": 4,
+        "recovery": 8,
+        "cooldown": 26,
+        "damage": 18,
+        "attack_width": 48,
+        "attack_height": 30,
+        "attack_offset": 5,
+        "knockback": 46,
+    },
+}
 
 
 class Player:
     def __init__(self, x, y, screen_width, screen_height):
         self.x = float(x)
         self.y = float(y)
-        self.width = 36
-        self.height = 72
+        self.width = 48
+        self.height = 96
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.ground_y = screen_height - self.height - 40
@@ -32,20 +53,29 @@ class Player:
         self.on_ground = True
         self.attack = False
         self.attack_timer = 0
-        self.attack_cooldown_timer = 0
-        self.attack_anticipation_frames = ATTACK_ANTICIPATION_FRAMES
-        self.attack_strike_frames = ATTACK_STRIKE_FRAMES
-        self.attack_recovery_frames = ATTACK_RECOVERY_FRAMES
+        self.attack_damage = ATTACK_PROFILES["primary"]["damage"]
+        self.attack_knockback = ATTACK_PROFILES["primary"]["knockback"]
+        self.attack_width = ATTACK_PROFILES["primary"]["attack_width"]
+        self.attack_height = ATTACK_PROFILES["primary"]["attack_height"]
+        self.attack_offset = ATTACK_PROFILES["primary"]["attack_offset"]
+        self.attack_anticipation_frames = ATTACK_PROFILES["primary"]["anticipation"]
+        self.attack_strike_frames = ATTACK_PROFILES["primary"]["strike"]
+        self.attack_recovery_frames = ATTACK_PROFILES["primary"]["recovery"]
         self.attack_duration_frames = (
             self.attack_anticipation_frames
             + self.attack_strike_frames
             + self.attack_recovery_frames
         )
+        self.attack_cooldown_timer = 0
         self.post_attack_frames = POST_ATTACK_FRAMES
         self.post_attack_timer = 0
-        self.attack_cooldown_frames = ATTACK_COOLDOWN_FRAMES
-        self.prev_attack_pressed = False
+        self.attack_cooldown_frames = ATTACK_PROFILES["primary"]["cooldown"]
+        self.prev_primary_pressed = False
+        self.prev_secondary_pressed = False
         self.attack_id = 0
+        self.hit_stun_timer = 0
+        self.hurt_flash_timer = 0
+        self.hurt_anim_timer = 0
         self.facing = 1
         self.health = 100
         self.weapon_name = None
@@ -55,31 +85,70 @@ class Player:
 
     def update(self):
         keys = pygame.key.get_pressed()
+        primary_pressed = keys[pygame.K_z]
+        secondary_pressed = keys[pygame.K_x]
+        if self.hurt_anim_timer > 0:
+            self.hurt_anim_timer -= 1
+        if self.hurt_flash_timer > 0:
+            self.hurt_flash_timer -= 1
         self.vel_x = 0.0
         lane_delta = 0.0
-        if keys[pygame.K_LEFT]:
-            self.vel_x = -self.speed
-            self.facing = -1
-        elif keys[pygame.K_RIGHT]:
-            self.vel_x = self.speed
-            self.facing = 1
-        if self.on_ground:
-            if keys[pygame.K_UP]:
-                lane_delta -= self.lane_speed
-            elif keys[pygame.K_DOWN]:
-                lane_delta += self.lane_speed
+        if self.hit_stun_timer > 0:
+            self.hit_stun_timer -= 1
+        else:
+            if keys[pygame.K_LEFT]:
+                self.vel_x = -self.speed
+                self.facing = -1
+            elif keys[pygame.K_RIGHT]:
+                self.vel_x = self.speed
+                self.facing = 1
+            if self.on_ground:
+                if keys[pygame.K_UP]:
+                    lane_delta -= self.lane_speed
+                elif keys[pygame.K_DOWN]:
+                    lane_delta += self.lane_speed
 
-        if keys[pygame.K_SPACE] and self.on_ground:
-            self.vel_y = self.jump_power
-            self.on_ground = False
+            if keys[pygame.K_SPACE] and self.on_ground:
+                self.vel_y = self.jump_power
+                self.on_ground = False
 
-        attack_pressed = keys[pygame.K_z]
-        if attack_pressed and not self.prev_attack_pressed and self.attack_cooldown_timer <= 0:
-            self.attack_timer = self.attack_duration_frames
-            self.attack_cooldown_timer = self.attack_cooldown_frames
-            self.post_attack_timer = 0
-            self.attack_id += 1
-        self.prev_attack_pressed = attack_pressed
+            triggered_attack = None
+            if (
+                primary_pressed
+                and not self.prev_primary_pressed
+                and self.attack_cooldown_timer <= 0
+                and not self.is_attacking()
+            ):
+                triggered_attack = "primary"
+            elif (
+                secondary_pressed
+                and not self.prev_secondary_pressed
+                and self.attack_cooldown_timer <= 0
+                and not self.is_attacking()
+            ):
+                triggered_attack = "secondary"
+            if triggered_attack is not None:
+                profile = ATTACK_PROFILES[triggered_attack]
+                self.attack_anticipation_frames = profile["anticipation"]
+                self.attack_strike_frames = profile["strike"]
+                self.attack_recovery_frames = profile["recovery"]
+                self.attack_duration_frames = (
+                    self.attack_anticipation_frames
+                    + self.attack_strike_frames
+                    + self.attack_recovery_frames
+                )
+                self.attack_timer = self.attack_duration_frames
+                self.attack_cooldown_frames = profile["cooldown"]
+                self.attack_cooldown_timer = self.attack_cooldown_frames
+                self.attack_damage = profile["damage"]
+                self.attack_width = profile["attack_width"]
+                self.attack_height = profile["attack_height"]
+                self.attack_offset = profile["attack_offset"]
+                self.attack_knockback = profile["knockback"]
+                self.post_attack_timer = 0
+                self.attack_id += 1
+        self.prev_primary_pressed = primary_pressed
+        self.prev_secondary_pressed = secondary_pressed
 
         prev_attack_timer = self.attack_timer
         if self.attack_timer > 0:
@@ -124,20 +193,24 @@ class Player:
         if elapsed < strike_start or elapsed >= strike_end:
             return None
         attack_width = 24 + self.weapon_range_bonus
-        attack_height = 18
+        attack_width = self.attack_width + self.weapon_range_bonus
+        attack_height = self.attack_height
         if self.facing > 0:
-            attack_x = int(self.x + self.width + 2)
+            attack_x = int(self.x + self.width + self.attack_offset)
         else:
-            attack_x = int(self.x - attack_width - 2)
+            attack_x = int(self.x - attack_width - self.attack_offset)
         return pygame.Rect(
             attack_x,
-            int(self.y + self.height // 3),
+            int(self.y + self.height * 0.3),
             attack_width,
             attack_height,
         )
 
     def get_attack_damage(self):
-        return 10 + self.weapon_damage_bonus
+        return self.attack_damage + self.weapon_damage_bonus
+
+    def get_attack_knockback(self):
+        return self.attack_knockback
 
     def equip_weapon(self, name, hits, damage_bonus, range_bonus):
         self.weapon_name = name
@@ -178,7 +251,9 @@ class Player:
         pygame.draw.ellipse(screen, (45, 45, 45), shadow_rect)
 
         body_rect = pygame.Rect(int(draw_x), int(self.y), self.width, self.height)
-        if not self.on_ground:
+        if self.hurt_anim_timer > 0:
+            pose = "hurt"
+        elif not self.on_ground:
             pose = "jump"
         elif self.is_attacking():
             pose = "attack"
@@ -204,21 +279,21 @@ class Player:
             body_rect=body_rect,
             facing=self.facing,
             palette={
-                "chest": (236, 236, 240),
-                "torso": (248, 248, 252),
-                "pelvis": (238, 238, 242),
+                "chest": (236, 236, 240) if self.hurt_flash_timer <= 0 else (248, 212, 212),
+                "torso": (248, 248, 252) if self.hurt_flash_timer <= 0 else (255, 220, 220),
+                "pelvis": (238, 238, 242) if self.hurt_flash_timer <= 0 else (246, 206, 206),
                 "belt": (28, 28, 30),
-                "head": (216, 196, 172),
+                "head": (216, 196, 172) if self.hurt_flash_timer <= 0 else (238, 210, 188),
                 "face": (188, 168, 145),
                 "hair": (28, 24, 20),
-                "front_arm_upper": (248, 248, 252),
-                "front_arm_lower": (242, 242, 246),
-                "rear_arm_upper": (232, 232, 238),
-                "rear_arm_lower": (228, 228, 234),
-                "front_leg_upper": (246, 246, 250),
-                "front_leg_lower": (240, 240, 246),
-                "rear_leg_upper": (228, 228, 234),
-                "rear_leg_lower": (222, 222, 228),
+                "front_arm_upper": (248, 248, 252) if self.hurt_flash_timer <= 0 else (255, 222, 222),
+                "front_arm_lower": (242, 242, 246) if self.hurt_flash_timer <= 0 else (250, 214, 214),
+                "rear_arm_upper": (232, 232, 238) if self.hurt_flash_timer <= 0 else (244, 206, 206),
+                "rear_arm_lower": (228, 228, 234) if self.hurt_flash_timer <= 0 else (240, 198, 198),
+                "front_leg_upper": (246, 246, 250) if self.hurt_flash_timer <= 0 else (252, 220, 220),
+                "front_leg_lower": (240, 240, 246) if self.hurt_flash_timer <= 0 else (248, 214, 214),
+                "rear_leg_upper": (228, 228, 234) if self.hurt_flash_timer <= 0 else (240, 202, 202),
+                "rear_leg_lower": (222, 222, 228) if self.hurt_flash_timer <= 0 else (236, 196, 196),
                 "hands": (212, 190, 162),
                 "feet": (202, 180, 154),
                 "head_scale": 0.93,

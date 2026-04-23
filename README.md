@@ -12,7 +12,8 @@ pip install -r requirements.txt
 
 - Arrow keys: Move (left/right and up/down lane depth)
 - Space: Jump
-- Z: Attack
+- Z: Primary Attack
+- X: Secondary Attack
 
 ## Running the Game
 
@@ -33,10 +34,11 @@ python main.py
 ## Features Implemented
 
 - Side-scrolling stage with camera follow and world-space coordinates
-- Player movement with lane-based depth, jump, and attack
+- Player movement with lane-based depth, jump, and two attacks
 - Progressive enemy spawning as player advances
-- Basic enemy AI (chase player)
-- Simple combat system with forward attack hitbox and attack cooldown
+- Enemy AI with chase + melee attacks, cooldown pacing, and player damage
+- End-of-level boss encounter with distinct silhouette and health bar
+- Simple combat system with distinct primary/secondary attack hitboxes and tuning
 - Enemy hurt stun, knockback, and brief hit flash feedback
 - Interactive environment objects (crates, barrels, and pickup pipe weapon)
 - Breakable objects with health and simple break flash effect

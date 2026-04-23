@@ -11,11 +11,11 @@ def check_attack_collision(player, enemy):
         return False
     return attack_rect.colliderect(enemy.get_rect())
 
-def apply_knockback(target, source):
+def apply_knockback(target, source, knockback_distance=KNOCKBACK_DISTANCE):
     if source.x > target.x:
-        target.x -= KNOCKBACK_DISTANCE
+        target.x -= knockback_distance
     else:
-        target.x += KNOCKBACK_DISTANCE
+        target.x += knockback_distance
     target.x = max(0, min(target.x, target.screen_width - target.width))
     target.hit_stun_timer = max(target.hit_stun_timer, HIT_STUN_FRAMES)
     target.hurt_flash_timer = max(target.hurt_flash_timer, HURT_FLASH_FRAMES)

@@ -3,6 +3,7 @@ from render import draw_fighter, get_depth_scale
 
 LANE_CHASE_THRESHOLD = 4
 LANE_CHASE_SPEED = 1.5
+GROUND_Y_ATTACK_THRESHOLD = 18
 SHADOW_BASE_SCALE = 1.0
 SHADOW_MAX_REDUCTION = 0.5
 SHADOW_JUMP_DIVISOR = 120.0
@@ -11,25 +12,82 @@ SHADOW_OUTER_INFLATE_X = 6
 SHADOW_OUTER_INFLATE_Y = 2
 SHADOW_OUTER_COLOR = (30, 30, 30)
 
+
+ENEMY_ATTACK_PROFILE = {
+    "anticipation": 5,
+    "strike": 4,
+    "recovery": 8,
+    "cooldown": 36,
+    "damage": 8,
+    "attack_width": 34,
+    "attack_height": 26,
+    "attack_offset": 4,
+    "attack_knockback": 26,
+    "engage_distance": 52,
+}
+
+BOSS_ATTACK_PROFILE = {
+    "anticipation": 8,
+    "strike": 6,
+    "recovery": 12,
+    "cooldown": 42,
+    "damage": 16,
+    "attack_width": 56,
+    "attack_height": 34,
+    "attack_offset": 5,
+    "attack_knockback": 52,
+    "engage_distance": 66,
+}
+BOSS_MAX_HEALTH = 260
+
+
 class Enemy:
-    def __init__(self, x, y, screen_width, screen_height):
+    def __init__(self, x, y, screen_width, screen_height, is_boss=False):
+        self.is_boss = is_boss
         self.x = float(x)
         self.y = float(y)
-        self.width = 36
-        self.height = 72
+        if self.is_boss:
+            self.width = 66
+            self.height = 124
+            self.speed = 2.1
+            self.health = BOSS_MAX_HEALTH
+            profile = BOSS_ATTACK_PROFILE
+        else:
+            self.width = 48
+            self.height = 96
+            self.speed = 2.8
+            self.health = 120
+            profile = ENEMY_ATTACK_PROFILE
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.ground_y = y
         self.vel_x = 0.0
         self.vel_y = 0.0
-        self.speed = 3
         self.gravity = 0.8
         self.on_ground = True
-        self.health = 100
         self.hit_stun_timer = 0
         self.hurt_flash_timer = 0
         self.hurt_anim_timer = 0
+        self.attack_timer = 0
+        self.attack_cooldown_timer = 0
+        self.attack_id = 0
+        self.attack_anticipation_frames = profile["anticipation"]
+        self.attack_strike_frames = profile["strike"]
+        self.attack_recovery_frames = profile["recovery"]
+        self.attack_duration_frames = (
+            self.attack_anticipation_frames
+            + self.attack_strike_frames
+            + self.attack_recovery_frames
+        )
+        self.attack_cooldown_frames = profile["cooldown"]
+        self.attack_damage = profile["damage"]
+        self.attack_width = profile["attack_width"]
+        self.attack_height = profile["attack_height"]
+        self.attack_offset = profile["attack_offset"]
+        self.attack_knockback = profile["attack_knockback"]
+        self.engage_distance = profile["engage_distance"]
         self.last_hit_attack_id = -1
+        self.last_hit_player_attack_id = -1
         self.defeat_handled = False
         self.facing = -1
 
@@ -38,6 +96,8 @@ class Enemy:
             self.hurt_flash_timer -= 1
         if self.hurt_anim_timer > 0:
             self.hurt_anim_timer -= 1
+        if self.attack_cooldown_timer > 0:
+            self.attack_cooldown_timer -= 1
 
         if self.health <= 0:
             return
@@ -46,8 +106,17 @@ class Enemy:
             self.hit_stun_timer -= 1
             self.hurt_anim_timer = max(self.hurt_anim_timer, int(HURT_ANIMATION_DURATION_FRAMES))
             self.vel_x = 0
+            self.attack_timer = 0
+        elif self.attack_timer > 0:
+            self.attack_timer -= 1
+            self.vel_x = 0
         else:
-            if player.x > self.x + 4:
+            if self.should_attack(player):
+                self.attack_timer = self.attack_duration_frames
+                self.attack_cooldown_timer = self.attack_cooldown_frames
+                self.attack_id += 1
+                self.vel_x = 0
+            elif player.x > self.x + 4:
                 self.vel_x = self.speed
             elif player.x < self.x - 4:
                 self.vel_x = -self.speed
@@ -81,6 +150,35 @@ class Enemy:
             self.vel_y = 0.0
             self.on_ground = True
 
+    def should_attack(self, player):
+        if self.attack_cooldown_timer > 0:
+            return False
+        if abs(player.ground_y - self.ground_y) > GROUND_Y_ATTACK_THRESHOLD:
+            return False
+        return abs(player.x - self.x) <= self.engage_distance
+
+    def is_attacking(self):
+        return self.attack_timer > 0
+
+    def get_attack_rect(self):
+        if self.attack_timer <= 0:
+            return None
+        elapsed = self.attack_duration_frames - self.attack_timer
+        strike_start = self.attack_anticipation_frames
+        strike_end = strike_start + self.attack_strike_frames
+        if elapsed < strike_start or elapsed >= strike_end:
+            return None
+        if self.facing > 0:
+            attack_x = int(self.x + self.width + self.attack_offset)
+        else:
+            attack_x = int(self.x - self.attack_width - self.attack_offset)
+        return pygame.Rect(
+            attack_x,
+            int(self.y + self.height * 0.3),
+            self.attack_width,
+            self.attack_height,
+        )
+
     def get_rect(self):
         return pygame.Rect(int(self.x), int(self.y), self.width, self.height)
 
@@ -110,6 +208,8 @@ class Enemy:
         body_rect = pygame.Rect(int(draw_x), int(self.y), self.width, self.height)
         if self.hurt_anim_timer > 0:
             pose = "hurt"
+        elif self.attack_timer > 0:
+            pose = "attack"
         elif abs(self.vel_x) > 0.05:
             pose = "walk"
         else:
@@ -117,11 +217,42 @@ class Enemy:
 
         move_ratio = min(1.0, abs(self.vel_x) / self.speed) if self.speed else 0.0
         hurt_ratio = min(1.0, self.hurt_anim_timer / HURT_ANIMATION_DURATION_FRAMES)
-        draw_fighter(
-            screen,
-            body_rect=body_rect,
-            facing=self.facing,
-            palette={
+        attack_ratio = max(
+            0.0,
+            min(1.0, 1.0 - (self.attack_timer / self.attack_duration_frames)),
+        )
+        attack_anticipation_end = self.attack_anticipation_frames / self.attack_duration_frames
+        attack_strike_end = (
+            self.attack_anticipation_frames + self.attack_strike_frames
+        ) / self.attack_duration_frames
+        if self.is_boss:
+            palette = {
+                "chest": (128, 54, 48) if not hurt_flash else (210, 126, 120),
+                "torso": (58, 58, 62) if not hurt_flash else (204, 204, 210),
+                "pelvis": (84, 64, 124) if not hurt_flash else (174, 158, 226),
+                "head": (176, 142, 112) if not hurt_flash else (238, 216, 196),
+                "face": (130, 102, 82),
+                "hair": (24, 20, 20),
+                "front_arm_upper": (72, 72, 76) if not hurt_flash else (204, 204, 210),
+                "front_arm_lower": (124, 84, 72) if not hurt_flash else (206, 178, 170),
+                "rear_arm_upper": (56, 56, 60) if not hurt_flash else (190, 190, 198),
+                "rear_arm_lower": (112, 76, 66) if not hurt_flash else (194, 168, 160),
+                "front_leg_upper": (78, 70, 142) if not hurt_flash else (174, 166, 238),
+                "front_leg_lower": (62, 56, 118) if not hurt_flash else (162, 154, 224),
+                "rear_leg_upper": (56, 50, 102) if not hurt_flash else (154, 146, 212),
+                "rear_leg_lower": (46, 42, 86) if not hurt_flash else (146, 138, 202),
+                "hands": (176, 140, 112),
+                "feet": (48, 48, 52),
+                "head_scale": 0.92,
+                "shoulder_ratio": 0.31,
+                "hip_ratio": 0.2,
+                "arm_width": 0.23,
+                "leg_width": 0.22,
+                "idle_tilt": -0.08,
+                "idle_shift": 0.04,
+            }
+        else:
+            palette = {
                 "chest": (88, 44, 38) if not hurt_flash else (180, 126, 120),
                 "torso": (52, 52, 56) if not hurt_flash else (186, 186, 192),
                 "pelvis": (44, 56, 88) if not hurt_flash else (146, 162, 200),
@@ -145,16 +276,24 @@ class Enemy:
                 "leg_width": 0.2,
                 "idle_tilt": -0.06,
                 "idle_shift": 0.03,
-            },
+            }
+        draw_fighter(
+            screen,
+            body_rect=body_rect,
+            facing=self.facing,
+            palette=palette,
             pose=pose,
             move_ratio=move_ratio,
+            attack_ratio=attack_ratio,
+            attack_anticipation_end=attack_anticipation_end,
+            attack_strike_end=attack_strike_end,
             hurt_ratio=hurt_ratio,
             phase_offset=self.x * 0.01,
         )
 
         pygame.draw.line(
             screen,
-            (20, 20, 20),
+            (12, 12, 12) if self.is_boss else (20, 20, 20),
             (int(draw_x), int(self.y + self.height)),
             (int(draw_x + self.width), int(self.y + self.height)),
             2,
