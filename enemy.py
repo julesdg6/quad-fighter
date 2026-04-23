@@ -182,11 +182,11 @@ class Enemy:
             return False
         if abs(player.ground_y - self.ground_y) > GROUND_Y_ATTACK_THRESHOLD:
             return False
-        horizontal_gap = max(
+        hitbox_separation = max(
             0.0,
             max(self.x, player.x) - min(self.x + self.width, player.x + player.width),
         )
-        return horizontal_gap <= self.engage_distance
+        return hitbox_separation <= self.engage_distance
 
     def is_attacking(self):
         return self.attack_timer > 0

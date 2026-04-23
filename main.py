@@ -43,6 +43,10 @@ DEFAULT_ENEMY_GROUND_Y = HEIGHT - 232
 PLAYER_SPAWN_X = 140
 LEVEL_COMPLETE_ANIM_FRAMES = 150
 LEVEL_COMPLETE_AUTO_WALK_SPEED = 1.6
+LEVEL_COMPLETE_PULSE_BASE = 220
+LEVEL_COMPLETE_PULSE_AMPLITUDE = 35
+LEVEL_COMPLETE_PULSE_PERIOD_FRAMES = 240
+LEVEL_COMPLETE_PULSE_STEP = 0.25
 BREAK_EFFECT_FRAMES = 12
 BREAK_EFFECT_BASE_SIZE = 6
 BREAK_EFFECT_SIZE_PER_FRAME = 2
@@ -477,7 +481,10 @@ while running:
         section_text = font.render(section_message, True, (235, 235, 235))
         screen.blit(section_text, (WIDTH // 2 - section_text.get_width() // 2, 68))
     if stage_complete or level_transition_timer > 0:
-        pulse = 220 + int(35 * abs(math.sin((frame_count % 240) * 0.25)))
+        pulse = LEVEL_COMPLETE_PULSE_BASE + int(
+            LEVEL_COMPLETE_PULSE_AMPLITUDE
+            * abs(math.sin((frame_count % LEVEL_COMPLETE_PULSE_PERIOD_FRAMES) * LEVEL_COMPLETE_PULSE_STEP))
+        )
         clear_text = font.render("LEVEL COMPLETE", True, (pulse, pulse, pulse))
         screen.blit(clear_text, (WIDTH // 2 - clear_text.get_width() // 2, 98))
         if level_transition_timer > 0:
