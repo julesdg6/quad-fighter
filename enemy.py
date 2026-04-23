@@ -26,11 +26,24 @@ ENEMY_ATTACK_PROFILE = {
     "engage_distance": 52,
 }
 
+BRAWLER_ATTACK_PROFILE = {
+    "anticipation": 7,
+    "strike": 5,
+    "recovery": 10,
+    "cooldown": 34,
+    "damage": 11,
+    "attack_width": 44,
+    "attack_height": 30,
+    "attack_offset": 4,
+    "attack_knockback": 34,
+    "engage_distance": 58,
+}
+
 BOSS_ATTACK_PROFILE = {
-    "anticipation": 8,
+    "anticipation": 10,
     "strike": 6,
     "recovery": 12,
-    "cooldown": 42,
+    "cooldown": 48,
     "damage": 16,
     "attack_width": 56,
     "attack_height": 34,
@@ -42,8 +55,9 @@ BOSS_MAX_HEALTH = 260
 
 
 class Enemy:
-    def __init__(self, x, y, screen_width, screen_height, is_boss=False):
+    def __init__(self, x, y, screen_width, screen_height, is_boss=False, variant="raider"):
         self.is_boss = is_boss
+        self.variant = variant
         self.x = float(x)
         self.y = float(y)
         if self.is_boss:
@@ -53,11 +67,18 @@ class Enemy:
             self.health = BOSS_MAX_HEALTH
             profile = BOSS_ATTACK_PROFILE
         else:
-            self.width = 48
-            self.height = 96
-            self.speed = 2.8
-            self.health = 120
-            profile = ENEMY_ATTACK_PROFILE
+            if self.variant == "brawler":
+                self.width = 56
+                self.height = 104
+                self.speed = 2.2
+                self.health = 150
+                profile = BRAWLER_ATTACK_PROFILE
+            else:
+                self.width = 48
+                self.height = 96
+                self.speed = 2.8
+                self.health = 120
+                profile = ENEMY_ATTACK_PROFILE
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.ground_y = y
@@ -182,6 +203,12 @@ class Enemy:
     def get_rect(self):
         return pygame.Rect(int(self.x), int(self.y), self.width, self.height)
 
+    def is_attack_windup(self):
+        if self.attack_timer <= 0:
+            return False
+        elapsed = self.attack_duration_frames - self.attack_timer
+        return elapsed < self.attack_anticipation_frames
+
     def draw(self, screen, camera_x=0):
         draw_x = self.x - camera_x
         shadow_scale = SHADOW_BASE_SCALE - min(
@@ -252,31 +279,58 @@ class Enemy:
                 "idle_shift": 0.04,
             }
         else:
-            palette = {
-                "chest": (88, 44, 38) if not hurt_flash else (180, 126, 120),
-                "torso": (52, 52, 56) if not hurt_flash else (186, 186, 192),
-                "pelvis": (44, 56, 88) if not hurt_flash else (146, 162, 200),
-                "head": (170, 138, 112) if not hurt_flash else (224, 208, 188),
-                "face": (126, 100, 82),
-                "hair": (24, 24, 24),
-                "front_arm_upper": (58, 58, 62) if not hurt_flash else (196, 196, 202),
-                "front_arm_lower": (102, 70, 62) if not hurt_flash else (196, 170, 162),
-                "rear_arm_upper": (44, 44, 48) if not hurt_flash else (182, 182, 188),
-                "rear_arm_lower": (90, 62, 56) if not hurt_flash else (184, 160, 152),
-                "front_leg_upper": (50, 66, 104) if not hurt_flash else (158, 176, 214),
-                "front_leg_lower": (38, 50, 84) if not hurt_flash else (148, 166, 202),
-                "rear_leg_upper": (36, 48, 76) if not hurt_flash else (140, 158, 192),
-                "rear_leg_lower": (30, 38, 62) if not hurt_flash else (130, 148, 184),
-                "hands": (168, 134, 108),
-                "feet": (44, 44, 48),
-                "head_scale": 0.9,
-                "shoulder_ratio": 0.29,
-                "hip_ratio": 0.19,
-                "arm_width": 0.21,
-                "leg_width": 0.2,
-                "idle_tilt": -0.06,
-                "idle_shift": 0.03,
-            }
+            if self.variant == "brawler":
+                palette = {
+                    "chest": (72, 72, 46) if not hurt_flash else (186, 186, 126),
+                    "torso": (48, 54, 52) if not hurt_flash else (180, 192, 186),
+                    "pelvis": (84, 74, 44) if not hurt_flash else (206, 182, 132),
+                    "head": (176, 146, 118) if not hurt_flash else (234, 214, 196),
+                    "face": (130, 104, 84),
+                    "hair": (34, 32, 24),
+                    "front_arm_upper": (84, 86, 62) if not hurt_flash else (198, 204, 170),
+                    "front_arm_lower": (118, 88, 66) if not hurt_flash else (206, 182, 166),
+                    "rear_arm_upper": (70, 72, 52) if not hurt_flash else (184, 188, 160),
+                    "rear_arm_lower": (106, 78, 60) if not hurt_flash else (194, 172, 154),
+                    "front_leg_upper": (88, 80, 46) if not hurt_flash else (212, 194, 132),
+                    "front_leg_lower": (70, 64, 38) if not hurt_flash else (196, 178, 124),
+                    "rear_leg_upper": (78, 70, 40) if not hurt_flash else (198, 182, 128),
+                    "rear_leg_lower": (62, 56, 34) if not hurt_flash else (184, 170, 120),
+                    "hands": (172, 138, 112),
+                    "feet": (50, 48, 42),
+                    "head_scale": 0.88,
+                    "shoulder_ratio": 0.33,
+                    "hip_ratio": 0.22,
+                    "arm_width": 0.24,
+                    "leg_width": 0.24,
+                    "idle_tilt": -0.04,
+                    "idle_shift": 0.02,
+                }
+            else:
+                palette = {
+                    "chest": (88, 44, 38) if not hurt_flash else (180, 126, 120),
+                    "torso": (52, 52, 56) if not hurt_flash else (186, 186, 192),
+                    "pelvis": (44, 56, 88) if not hurt_flash else (146, 162, 200),
+                    "head": (170, 138, 112) if not hurt_flash else (224, 208, 188),
+                    "face": (126, 100, 82),
+                    "hair": (24, 24, 24),
+                    "front_arm_upper": (58, 58, 62) if not hurt_flash else (196, 196, 202),
+                    "front_arm_lower": (102, 70, 62) if not hurt_flash else (196, 170, 162),
+                    "rear_arm_upper": (44, 44, 48) if not hurt_flash else (182, 182, 188),
+                    "rear_arm_lower": (90, 62, 56) if not hurt_flash else (184, 160, 152),
+                    "front_leg_upper": (50, 66, 104) if not hurt_flash else (158, 176, 214),
+                    "front_leg_lower": (38, 50, 84) if not hurt_flash else (148, 166, 202),
+                    "rear_leg_upper": (36, 48, 76) if not hurt_flash else (140, 158, 192),
+                    "rear_leg_lower": (30, 38, 62) if not hurt_flash else (130, 148, 184),
+                    "hands": (168, 134, 108),
+                    "feet": (44, 44, 48),
+                    "head_scale": 0.9,
+                    "shoulder_ratio": 0.29,
+                    "hip_ratio": 0.19,
+                    "arm_width": 0.21,
+                    "leg_width": 0.2,
+                    "idle_tilt": -0.06,
+                    "idle_shift": 0.03,
+                }
         draw_fighter(
             screen,
             body_rect=body_rect,
@@ -290,6 +344,17 @@ class Enemy:
             hurt_ratio=hurt_ratio,
             phase_offset=self.x * 0.01,
         )
+
+        if self.is_attack_windup():
+            windup_ratio = 1.0 - (self.attack_timer / self.attack_duration_frames)
+            pulse = 90 + int(70 * abs((windup_ratio * 8) % 2 - 1))
+            intent_width = self.attack_width + 10
+            if self.facing > 0:
+                intent_x = int(draw_x + self.width + self.attack_offset - 3)
+            else:
+                intent_x = int(draw_x - intent_width - self.attack_offset + 3)
+            intent_rect = pygame.Rect(intent_x, int(self.y + self.height * 0.33), intent_width, self.attack_height)
+            pygame.draw.rect(screen, (pulse, 66, 66), intent_rect, 2)
 
         pygame.draw.line(
             screen,

@@ -48,4 +48,14 @@ class EnvironmentObject:
             )
             pygame.draw.line(screen, (168, 168, 174), draw_rect.midright, tip, 4)
             pygame.draw.circle(screen, (196, 196, 202), tip, 4)
-
+        elif self.kind == "food":
+            shadow_rect = pygame.Rect(draw_rect.x - 1, draw_rect.bottom - 2, draw_rect.width + 2, 4)
+            pygame.draw.ellipse(screen, (42, 42, 42), shadow_rect)
+            food_rect = draw_rect.inflate(-4, -2)
+            pygame.draw.ellipse(screen, (196, 52, 52), food_rect)
+            pygame.draw.ellipse(screen, (126, 26, 26), food_rect, 2)
+            pygame.draw.rect(
+                screen,
+                (92, 186, 88),
+                (food_rect.centerx - 1, food_rect.y - 3, 3, 5),
+            )
