@@ -1,0 +1,58 @@
+name: update-readme-screenshots
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - main.py
+      - player.py
+      - enemy.py
+      - combat.py
+      - objects.py
+      - render.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-screenshots:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Render gameplay overview screenshot
+        env:
+          SDL_VIDEODRIVER: dummy
+          QUAD_FIGHTER_AUTO_EXIT_FRAMES: "90"
+          QUAD_FIGHTER_SCREENSHOT_PATH: docs/screenshots/gameplay-overview.png
+        run: timeout 20s python main.py
+
+      - name: Render combat hit feedback screenshot
+        env:
+          SDL_VIDEODRIVER: dummy
+          QUAD_FIGHTER_AUTO_EXIT_FRAMES: "210"
+          QUAD_FIGHTER_SCREENSHOT_PATH: docs/screenshots/combat-hit-feedback.png
+        run: timeout 20s python main.py
+
+      - name: Commit updated screenshots
+        run: |
+          git add docs/screenshots
+          if [ -z "$(git status --porcelain -- docs/screenshots)" ]; then
+            echo "No screenshot changes detected."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: update README screenshots"
+          git push
