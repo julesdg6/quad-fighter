@@ -30,6 +30,7 @@ python main.py
 - Health values and simple HUD (including enemy HP)
 - Basic hitbox visualization
 - Visible lane/floor band for depth readability
+- Procedural named-pose fighter animation (idle/walk/jump/attack/hurt)
 - 60 FPS game loop
 
 ## Next Steps

@@ -1,10 +1,12 @@
 import pygame
+from render import draw_fighter
 
 LANE_CHASE_THRESHOLD = 4
 LANE_CHASE_SPEED = 1.5
 SHADOW_BASE_SCALE = 0.9
 SHADOW_MAX_REDUCTION = 0.5
 SHADOW_JUMP_DIVISOR = 120.0
+HURT_ANIMATION_DURATION_FRAMES = 10.0
 
 class Enemy:
     def __init__(self, x, y, screen_width, screen_height):
@@ -93,55 +95,32 @@ class Enemy:
 
         body_color = (220, 220, 220) if self.hurt_flash_timer > 0 else (100, 100, 100)
         body_rect = self.get_rect()
-        center_x = body_rect.centerx
-        top_y = body_rect.top
-        bottom_y = body_rect.bottom
-        width = body_rect.width
-        height = body_rect.height
+        if self.hit_stun_timer > 0:
+            pose = "hurt"
+        elif abs(self.vel_x) > 0.05:
+            pose = "walk"
+        else:
+            pose = "idle"
 
-        head_radius = max(6, int(width * 0.2))
-        head_center = (center_x, top_y + head_radius + 2)
-        shoulder_y = head_center[1] + head_radius + 4
-        hip_y = top_y + int(height * 0.58)
-        left_shoulder_x = center_x - int(width * 0.2)
-        right_shoulder_x = center_x + int(width * 0.2)
-
-        torso_points = [
-            (left_shoulder_x, shoulder_y),
-            (right_shoulder_x, shoulder_y),
-            (center_x + int(width * 0.3), hip_y),
-            (center_x - int(width * 0.3), hip_y),
-        ]
-        pygame.draw.polygon(screen, body_color, torso_points)
-        pygame.draw.circle(screen, body_color, head_center, head_radius)
-
-        face_tip_x = head_center[0] + self.facing * (head_radius + 2)
-        face_mid_y = head_center[1]
-        pygame.draw.polygon(
+        move_ratio = min(1.0, abs(self.vel_x) / self.speed) if self.speed else 0.0
+        hurt_ratio = min(1.0, self.hit_stun_timer / HURT_ANIMATION_DURATION_FRAMES)
+        draw_fighter(
             screen,
-            (40, 40, 40),
-            [
-                (face_tip_x, face_mid_y),
-                (head_center[0] + self.facing * (head_radius - 2), face_mid_y - 3),
-                (head_center[0] + self.facing * (head_radius - 2), face_mid_y + 3),
-            ],
+            body_rect=body_rect,
+            facing=self.facing,
+            palette={
+                "torso": body_color,
+                "head": body_color,
+                "face": (40, 40, 40),
+                "front_arm": (70, 70, 70),
+                "rear_arm": (60, 60, 60),
+                "leg": (65, 65, 65),
+            },
+            pose=pose,
+            move_ratio=move_ratio,
+            hurt_ratio=hurt_ratio,
+            phase_offset=self.x * 0.01,
         )
-
-        arm_reach_x = center_x + self.facing * int(width * 0.6)
-        arm_reach_y = shoulder_y + int(height * 0.07)
-        rear_arm_x = center_x - self.facing * int(width * 0.5)
-        rear_arm_y = shoulder_y + int(height * 0.11)
-        forward_shoulder_x = right_shoulder_x if self.facing > 0 else left_shoulder_x
-        rear_shoulder_x = left_shoulder_x if self.facing > 0 else right_shoulder_x
-        pygame.draw.line(screen, (70, 70, 70), (forward_shoulder_x, shoulder_y), (arm_reach_x, arm_reach_y), 3)
-        pygame.draw.line(screen, (60, 60, 60), (rear_shoulder_x, shoulder_y), (rear_arm_x, rear_arm_y), 3)
-
-        left_hip = (center_x - int(width * 0.16), hip_y)
-        right_hip = (center_x + int(width * 0.16), hip_y)
-        left_foot = (center_x - int(width * 0.3), bottom_y)
-        right_foot = (center_x + int(width * 0.3), bottom_y)
-        pygame.draw.line(screen, (65, 65, 65), left_hip, left_foot, 4)
-        pygame.draw.line(screen, (65, 65, 65), right_hip, right_foot, 4)
 
         pygame.draw.line(
             screen,
