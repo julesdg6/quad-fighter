@@ -1,5 +1,10 @@
 import pygame
 
+SHADOW_BASE_SCALE = 0.9
+SHADOW_MAX_REDUCTION = 0.5
+SHADOW_JUMP_DIVISOR = 120.0
+
+
 class Player:
     def __init__(self, x, y, screen_width, screen_height):
         self.x = float(x)
@@ -33,7 +38,7 @@ class Player:
         if keys[pygame.K_LEFT]:
             self.vel_x = -self.speed
             self.facing = -1
-        if keys[pygame.K_RIGHT]:
+        elif keys[pygame.K_RIGHT]:
             self.vel_x = self.speed
             self.facing = 1
         if self.on_ground:
@@ -83,7 +88,7 @@ class Player:
             return None
         attack_width = 24
         attack_height = 18
-        if self.facing >= 0:
+        if self.facing > 0:
             attack_x = int(self.x + self.width + 2)
         else:
             attack_x = int(self.x - attack_width - 2)
@@ -95,7 +100,11 @@ class Player:
         )
 
     def draw(self, screen):
-        shadow_width = int(self.width * (0.9 - min(0.5, max(0.0, (self.ground_y - self.y) / 120.0))))
+        shadow_scale = SHADOW_BASE_SCALE - min(
+            SHADOW_MAX_REDUCTION,
+            max(0.0, (self.ground_y - self.y) / SHADOW_JUMP_DIVISOR),
+        )
+        shadow_width = int(self.width * shadow_scale)
         shadow_width = max(10, shadow_width)
         shadow_height = max(4, int(shadow_width * 0.35))
         shadow_rect = pygame.Rect(

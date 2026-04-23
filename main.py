@@ -46,7 +46,8 @@ while running:
         enemy.health = max(0, enemy.health - 10)
         apply_knockback(enemy, player)
 
-    if enemy is not None and enemy.health <= 0:
+    if enemy is not None and enemy.health <= 0 and not enemy.defeat_handled:
+        enemy.defeat_handled = True
         enemies_beaten += 1
         if enemies_beaten == 1:
             enemy_index = 2
@@ -72,9 +73,6 @@ while running:
 
     hud_text = f"Player HP: {player.health}   {enemy_status}"
     screen.blit(font.render(hud_text, True, (220, 220, 220)), (16, 16))
-    cooldown_text = f"Attack CD: {player.attack_cooldown_timer}"
-    screen.blit(font.render(cooldown_text, True, (190, 190, 190)), (16, 40))
-
     if clear_shown:
         clear_text = font.render("AREA CLEAR", True, (240, 240, 240))
         screen.blit(clear_text, (WIDTH // 2 - clear_text.get_width() // 2, 70))
