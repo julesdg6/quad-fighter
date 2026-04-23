@@ -50,7 +50,11 @@ class Enemy:
             elif player.ground_y < self.ground_y - LANE_CHASE_THRESHOLD:
                 self.ground_y -= LANE_CHASE_SPEED
 
-        if self.vel_x > 0:
+        if player.x > self.x + 1:
+            self.facing = 1
+        elif player.x < self.x - 1:
+            self.facing = -1
+        elif self.vel_x > 0:
             self.facing = 1
         elif self.vel_x < 0:
             self.facing = -1
