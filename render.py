@@ -2,8 +2,8 @@ import math
 
 import pygame
 
-BASE_WALK_PHASE_SPEED = 4.2
-WALK_PHASE_SPEED_FROM_MOVE = 4.0
+BASE_WALK_PHASE_SPEED = 3.2
+WALK_PHASE_SPEED_FROM_MOVE = 2.8
 IDLE_BOB_FREQUENCY = 2.2
 IDLE_BOB_AMPLITUDE = 1.4
 ATTACK_BASE_REACH = 0.28
@@ -172,16 +172,16 @@ def draw_fighter(
     attack_extension = 0.0
 
     if pose == "walk":
-        stride = walk_sin * (0.36 + move_ratio * 0.18)
+        stride = walk_sin * (0.28 + move_ratio * 0.14)
         front_stride = stride * width
-        back_stride = -stride * width * 0.92
-        front_lift = max(0.0, -walk_sin) * height * 0.17
-        back_lift = max(0.0, walk_sin) * height * 0.17
-        shoulder_counter = -walk_sin * width * 0.11
-        torso_shift_x = facing * width * (0.04 + move_ratio * 0.02)
-        torso_tilt = (-0.08 - walk_sin * 0.03) * facing
-        stance_drop = height * 0.04
-        bob += math.sin(walk_phase * 2.0) * 0.8
+        back_stride = -stride * width * 0.9
+        front_lift = max(0.0, math.sin(walk_phase + math.pi * 0.2)) * height * 0.12
+        back_lift = max(0.0, math.sin(walk_phase + math.pi * 1.2)) * height * 0.12
+        shoulder_counter = -walk_sin * width * 0.08
+        torso_shift_x = facing * width * (0.03 + move_ratio * 0.03)
+        torso_tilt = (-0.05 - walk_sin * 0.02) * facing
+        stance_drop = height * 0.02
+        bob += math.sin(walk_phase * 2.0) * 0.45
     elif pose == "jump":
         bob -= JUMP_BOB_OFFSET
         torso_tilt = 0.06 * facing
@@ -337,7 +337,7 @@ def draw_fighter(
             int(rear_shoulder[1] + height * 0.18),
         )
     else:
-        arm_swing = walk_sin * width * 0.2 * (0.2 + move_ratio * 0.8)
+        arm_swing = walk_sin * width * 0.16 * (0.15 + move_ratio * 0.75)
         front_hand = (
             int(front_shoulder[0] - facing * (width * (0.16 + 0.05 * move_ratio) + arm_swing)),
             int(front_shoulder[1] + height * (0.18 + 0.03 * abs(walk_sin))),

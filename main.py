@@ -1,6 +1,7 @@
 import pygame
 import sys
 import os
+import math
 from player import Player
 from enemy import Enemy, BOSS_MAX_HEALTH
 from combat import check_attack_collision, apply_knockback
@@ -13,7 +14,7 @@ WIDTH, HEIGHT = 800, 600
 WORLD_WIDTH = 3200
 FPS = 60
 LANE_TOP = int(HEIGHT * 0.5)
-LANE_BOTTOM = HEIGHT - 92
+LANE_BOTTOM = HEIGHT - 188
 HIT_PAUSE_FRAMES = 3
 IMPACT_FLASH_FRAMES = 5
 LANE_BAND_COUNT = 5
@@ -38,7 +39,10 @@ SPAWN_PLAYER_SPACING = 36
 SPAWN_TRIGGER_OFFSET = 420
 SPAWN_TRIGGER_SPACING = 28
 SPAWN_WORLD_RIGHT_PADDING = 80
-DEFAULT_ENEMY_GROUND_Y = HEIGHT - 136
+DEFAULT_ENEMY_GROUND_Y = HEIGHT - 232
+PLAYER_SPAWN_X = 140
+LEVEL_COMPLETE_ANIM_FRAMES = 150
+LEVEL_COMPLETE_AUTO_WALK_SPEED = 1.6
 BREAK_EFFECT_FRAMES = 12
 BREAK_EFFECT_BASE_SIZE = 6
 BREAK_EFFECT_SIZE_PER_FRAME = 2
@@ -54,7 +58,7 @@ clock = pygame.time.Clock()
 font = pygame.font.SysFont(None, 24)
 
 # Game objects
-player = Player(140, HEIGHT - 136, WORLD_WIDTH, HEIGHT)
+player = Player(PLAYER_SPAWN_X, HEIGHT - 232, WORLD_WIDTH, HEIGHT)
 enemies_beaten = 0
 last_attack_id = player.attack_id
 hit_pause_timer = 0
@@ -69,6 +73,9 @@ boss_intro_timer = 0
 section_name = None
 section_message = ""
 section_message_timer = 0
+level_number = 1
+level_transition_timer = 0
+just_advanced_level = False
 
 enemy_spawn_zones = [
     {"trigger_x": 260, "count": 1, "variants": ["raider"]},
@@ -78,15 +85,21 @@ enemy_spawn_zones = [
     {"trigger_x": 2360, "count": 1, "variants": ["brawler"]},
 ]
 enemies = []
-environment_objects = [
-    EnvironmentObject("crate", 520, HEIGHT - 96, 44, 44, health=35, solid=True),
-    EnvironmentObject("barrel", 980, HEIGHT - 108, 38, 56, health=45, solid=True),
-    EnvironmentObject("pipe", 1150, HEIGHT - 72, 28, 10),
-    EnvironmentObject("crate", 1540, HEIGHT - 96, 44, 44, health=35, solid=True),
-    EnvironmentObject("food", 1680, HEIGHT - 70, 26, 20),
-    EnvironmentObject("barrel", 2120, HEIGHT - 108, 38, 56, health=45, solid=True),
-    EnvironmentObject("crate", 2620, HEIGHT - 96, 44, 44, health=35, solid=True),
-]
+
+
+def build_environment_objects():
+    return [
+        EnvironmentObject("crate", 520, HEIGHT - 96, 44, 44, health=35, solid=True),
+        EnvironmentObject("barrel", 980, HEIGHT - 108, 38, 56, health=45, solid=True),
+        EnvironmentObject("pipe", 1150, HEIGHT - 72, 28, 10),
+        EnvironmentObject("crate", 1540, HEIGHT - 96, 44, 44, health=35, solid=True),
+        EnvironmentObject("food", 1680, HEIGHT - 70, 26, 20),
+        EnvironmentObject("barrel", 2120, HEIGHT - 108, 38, 56, health=45, solid=True),
+        EnvironmentObject("crate", 2620, HEIGHT - 96, 44, 44, health=35, solid=True),
+    ]
+
+
+environment_objects = build_environment_objects()
 break_effects = []
 
 
@@ -161,7 +174,6 @@ while running:
         if (
             not boss_spawned
             and spawn_cursor >= len(enemy_spawn_zones)
-            and not enemies
             and player.x >= BOSS_TRIGGER_X
         ):
             boss = Enemy(BOSS_SPAWN_X, DEFAULT_ENEMY_GROUND_Y, WORLD_WIDTH, HEIGHT, is_boss=True)
@@ -297,28 +309,66 @@ while running:
         and boss_defeated
         and player.x >= STAGE_CLEAR_X
     )
+    if stage_complete and level_transition_timer <= 0:
+        level_transition_timer = LEVEL_COMPLETE_ANIM_FRAMES
+        section_message = "LEVEL CLEAR"
+        section_message_timer = LEVEL_COMPLETE_ANIM_FRAMES
+    if level_transition_timer > 0:
+        level_transition_timer -= 1
+        player.x = min(WORLD_WIDTH - player.width, player.x + LEVEL_COMPLETE_AUTO_WALK_SPEED)
+        just_advanced_level = False
+        if level_transition_timer == 0:
+            level_number += 1
+            player.x = PLAYER_SPAWN_X
+            player.ground_y = player.screen_height - player.height - 40
+            player.y = player.ground_y
+            player.vel_x = 0.0
+            player.vel_y = 0.0
+            player.attack_timer = 0
+            player.post_attack_timer = 0
+            player.attack_cooldown_timer = 0
+            player.health = min(player.max_health, player.health + 20)
+            player.weapon_name = None
+            player.weapon_hits_remaining = 0
+            player.weapon_damage_bonus = 0
+            player.weapon_range_bonus = 0
+            enemies.clear()
+            environment_objects = build_environment_objects()
+            break_effects.clear()
+            spawn_cursor = 0
+            stage_complete = False
+            boss_spawned = False
+            boss_defeated = False
+            boss_intro_timer = 0
+            section_name = f"level_{level_number}_start"
+            section_message = f"LEVEL {level_number}"
+            section_message_timer = 120
+            just_advanced_level = True
     if boss_intro_timer > 0:
         boss_intro_timer -= 1
     if section_message_timer > 0:
         section_message_timer -= 1
 
-    if not boss_spawned:
-        if player.x < MID_SECTION_START_X:
-            next_section = "opening"
-            next_message = "OPENING - PUSH FORWARD"
+    if level_transition_timer <= 0 and not just_advanced_level:
+        if not boss_spawned:
+            if player.x < MID_SECTION_START_X:
+                next_section = "opening"
+                next_message = "OPENING - PUSH FORWARD"
+            else:
+                next_section = "mid"
+                next_message = "MID STAGE - CLEAR THE STREET"
+        elif boss_defeated:
+            next_section = "exit"
+            next_message = "BOSS DOWN - REACH THE EXIT"
         else:
-            next_section = "mid"
-            next_message = "MID STAGE - CLEAR THE STREET"
-    elif boss_defeated:
-        next_section = "exit"
-        next_message = "BOSS DOWN - REACH THE EXIT"
-    else:
-        next_section = "boss"
-        next_message = "FINAL AREA - DEFEAT THE BOSS"
-    if next_section != section_name:
-        section_name = next_section
-        section_message = next_message
-        section_message_timer = 120
+            next_section = "boss"
+            next_message = "FINAL AREA - DEFEAT THE BOSS"
+        if next_section != section_name:
+            section_name = next_section
+            section_message = next_message
+            section_message_timer = 120
+    elif just_advanced_level and section_message_timer <= 0:
+        just_advanced_level = False
 
     # Draw
     lane_height = LANE_BOTTOM - LANE_TOP
@@ -405,7 +455,10 @@ while running:
     weapon_text = "Weapon: FISTS"
     if player.weapon_name is not None:
         weapon_text = f"Weapon: {player.weapon_name.upper()} ({player.weapon_hits_remaining})"
-    hud_text = f"Player HP: {player.health}/{player.max_health}   {enemy_status}   Stage: {progress_pct}%   {weapon_text}"
+    hud_text = (
+        f"Player HP: {player.health}/{player.max_health}   Lvl: {level_number}   "
+        f"{enemy_status}   Stage: {progress_pct}%   {weapon_text}"
+    )
     screen.blit(font.render(hud_text, True, (220, 220, 220)), (16, 16))
     if boss_enemy is not None:
         boss_label = font.render("BOSS", True, (250, 220, 220))
@@ -418,9 +471,17 @@ while running:
     if section_message_timer > 0:
         section_text = font.render(section_message, True, (235, 235, 235))
         screen.blit(section_text, (WIDTH // 2 - section_text.get_width() // 2, 68))
-    if stage_complete:
-        clear_text = font.render("LEVEL COMPLETE", True, (245, 245, 245))
+    if stage_complete or level_transition_timer > 0:
+        pulse = 220 + int(35 * abs(math.sin(frame_count * 0.25)))
+        clear_text = font.render("LEVEL COMPLETE", True, (pulse, pulse, pulse))
         screen.blit(clear_text, (WIDTH // 2 - clear_text.get_width() // 2, 98))
+        if level_transition_timer > 0:
+            next_level_text = font.render(
+                f"NEXT LEVEL IN {max(1, (level_transition_timer + FPS - 1) // FPS)}",
+                True,
+                (210, 210, 210),
+            )
+            screen.blit(next_level_text, (WIDTH // 2 - next_level_text.get_width() // 2, 124))
 
     pygame.display.flip()
     frame_count += 1

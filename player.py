@@ -4,10 +4,11 @@ from render import draw_fighter, get_depth_scale
 SHADOW_BASE_SCALE = 1.0
 SHADOW_MAX_REDUCTION = 0.5
 SHADOW_JUMP_DIVISOR = 120.0
-SHADOW_OUTER_INFLATE_X = 6
-SHADOW_OUTER_INFLATE_Y = 2
+SHADOW_OUTER_INFLATE_X = 12
+SHADOW_OUTER_INFLATE_Y = 4
 SHADOW_OUTER_COLOR = (30, 30, 30)
 POST_ATTACK_FRAMES = 2
+CHARACTER_SCALE = 2
 
 ATTACK_PROFILES = {
     "primary": {
@@ -16,21 +17,21 @@ ATTACK_PROFILES = {
         "recovery": 4,
         "cooldown": 14,
         "damage": 10,
-        "attack_width": 30,
-        "attack_height": 24,
-        "attack_offset": 3,
-        "knockback": 28,
+        "attack_width": 60,
+        "attack_height": 48,
+        "attack_offset": 6,
+        "knockback": 56,
     },
     "secondary": {
-        "anticipation": 5,
-        "strike": 4,
-        "recovery": 8,
-        "cooldown": 26,
-        "damage": 18,
-        "attack_width": 48,
-        "attack_height": 30,
-        "attack_offset": 5,
-        "knockback": 46,
+        "anticipation": 7,
+        "strike": 5,
+        "recovery": 10,
+        "cooldown": 30,
+        "damage": 22,
+        "attack_width": 92,
+        "attack_height": 56,
+        "attack_offset": 8,
+        "knockback": 74,
     },
 }
 
@@ -39,17 +40,17 @@ class Player:
     def __init__(self, x, y, screen_width, screen_height):
         self.x = float(x)
         self.y = float(y)
-        self.width = 48
-        self.height = 96
+        self.width = 48 * CHARACTER_SCALE
+        self.height = 96 * CHARACTER_SCALE
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.ground_y = screen_height - self.height - 40
         self.vel_x = 0.0
         self.vel_y = 0.0
-        self.speed = 4
-        self.lane_speed = 3
-        self.jump_power = -15.0
-        self.gravity = 0.8
+        self.speed = 4.2
+        self.lane_speed = 3.4
+        self.jump_power = -18.0
+        self.gravity = 0.9
         self.on_ground = True
         self.attack = False
         self.attack_timer = 0
@@ -70,6 +71,7 @@ class Player:
         self.post_attack_frames = POST_ATTACK_FRAMES
         self.post_attack_timer = 0
         self.attack_cooldown_frames = ATTACK_PROFILES["primary"]["cooldown"]
+        self.current_attack_type = "primary"
         self.prev_primary_pressed = False
         self.prev_secondary_pressed = False
         self.attack_id = 0
@@ -115,21 +117,22 @@ class Player:
 
             triggered_attack = None
             if (
-                primary_pressed
-                and not self.prev_primary_pressed
-                and self.attack_cooldown_timer <= 0
-                and not self.is_attacking()
-            ):
-                triggered_attack = "primary"
-            elif (
                 secondary_pressed
                 and not self.prev_secondary_pressed
                 and self.attack_cooldown_timer <= 0
                 and not self.is_attacking()
             ):
                 triggered_attack = "secondary"
+            elif (
+                primary_pressed
+                and not self.prev_primary_pressed
+                and self.attack_cooldown_timer <= 0
+                and not self.is_attacking()
+            ):
+                triggered_attack = "primary"
             if triggered_attack is not None:
                 profile = ATTACK_PROFILES[triggered_attack]
+                self.current_attack_type = triggered_attack
                 self.attack_anticipation_frames = profile["anticipation"]
                 self.attack_strike_frames = profile["strike"]
                 self.attack_recovery_frames = profile["recovery"]
@@ -321,4 +324,5 @@ class Player:
         attack_rect = self.get_attack_rect()
         if attack_rect is not None:
             draw_attack_rect = attack_rect.move(-int(camera_x), 0)
-            pygame.draw.rect(screen, (255, 220, 0), draw_attack_rect, 2)
+            hitbox_color = (255, 220, 0) if self.current_attack_type == "primary" else (255, 150, 64)
+            pygame.draw.rect(screen, hitbox_color, draw_attack_rect, 2)
