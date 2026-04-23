@@ -32,13 +32,16 @@ python main.py
 
 ## Features Implemented
 
-- Player movement with lane-based depth
+- Side-scrolling stage with camera follow and world-space coordinates
+- Player movement with lane-based depth, jump, and attack
+- Progressive enemy spawning as player advances
 - Basic enemy AI (chase player)
 - Simple combat system with forward attack hitbox and attack cooldown
 - Enemy hurt stun, knockback, and brief hit flash feedback
-- Two-enemy one-screen flow with clear message after both are defeated
-- Health values and simple HUD (including enemy HP)
-- Basic hitbox visualization
+- Interactive environment objects (crates, barrels, and pickup pipe weapon)
+- Breakable objects with health and simple break flash effect
+- Weapon pickup that boosts attack range/damage for a limited number of hits
+- Health values and simple HUD (enemy count, stage progress, weapon state)
 - Visible lane/floor band for depth readability
 - Procedural named-pose fighter animation (idle/walk/jump/attack/hurt)
 - 60 FPS game loop
