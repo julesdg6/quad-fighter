@@ -6,6 +6,7 @@ from player import Player
 from enemy import Enemy, BOSS_MAX_HEALTH
 from combat import check_attack_collision, apply_knockback
 from objects import EnvironmentObject
+from background import generate_background, draw_background_pre_lane, draw_background_post_lane
 
 pygame.init()
 
@@ -69,6 +70,7 @@ hit_pause_timer = 0
 impact_timer = 0
 impact_rect = None
 camera_x = 0
+bg_data = generate_background(WORLD_WIDTH, HEIGHT, LANE_TOP)
 spawn_cursor = 0
 stage_complete = False
 boss_spawned = False
@@ -137,7 +139,10 @@ frame_count = 0
 screenshot_saved = False
 while running:
     clock.tick(FPS)
-    screen.fill((32, 32, 32))  # Greybox background
+    # Draw background: sky gradient + far/mid buildings
+    draw_background_pre_lane(screen, camera_x, bg_data, WIDTH, HEIGHT, LANE_TOP)
+    # Fill below-lane foreground floor area
+    pygame.draw.rect(screen, (28, 28, 28), (0, LANE_BOTTOM, WIDTH, HEIGHT - LANE_BOTTOM))
 
     # Event handling
     for event in pygame.event.get():
@@ -327,6 +332,7 @@ while running:
         just_advanced_level = False
         if level_transition_timer == 0:
             level_number += 1
+            bg_data = generate_background(WORLD_WIDTH, HEIGHT, LANE_TOP, seed=level_number * 37 + 5)
             player.x = PLAYER_SPAWN_X
             player.ground_y = player.screen_height - player.height - 40
             player.y = player.ground_y
@@ -403,6 +409,8 @@ while running:
         )
 
     drawables = []
+    # Draw near-layer background (lamps, vehicles, background characters)
+    draw_background_post_lane(screen, camera_x, frame_count, bg_data, WIDTH, HEIGHT, LANE_TOP, LANE_BOTTOM)
     drawables.append(("player", player.ground_y, player))
     for enemy in enemies:
         drawables.append(("enemy", enemy.ground_y, enemy))
