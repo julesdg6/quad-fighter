@@ -98,7 +98,8 @@ def spawn_enemies(player_x, zone):
             trigger_x + SPAWN_TRIGGER_OFFSET + i * SPAWN_TRIGGER_SPACING,
         )
         spawn_x = min(WORLD_WIDTH - SPAWN_WORLD_RIGHT_PADDING, spawn_x)
-        enemy = Enemy(spawn_x, DEFAULT_ENEMY_GROUND_Y, WORLD_WIDTH, HEIGHT, variant=variants[i % len(variants)])
+        variant_index = min(i, len(variants) - 1)
+        enemy = Enemy(spawn_x, DEFAULT_ENEMY_GROUND_Y, WORLD_WIDTH, HEIGHT, variant=variants[variant_index])
         enemy.ground_y = max(
             LANE_TOP,
             min(
@@ -238,7 +239,6 @@ while running:
                 continue
             player.health = min(player.max_health, player.health + FOOD_HEAL_AMOUNT)
             environment_objects.remove(obj)
-            player_rect = player.get_rect()
         for enemy in enemies:
             if enemy.health <= 0:
                 continue

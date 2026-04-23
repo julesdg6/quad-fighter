@@ -17,11 +17,9 @@ def apply_knockback(target, source, knockback_distance=KNOCKBACK_DISTANCE):
     else:
         target.x += knockback_distance
     target.x = max(0, min(target.x, target.screen_width - target.width))
-    if hasattr(target, "vel_y"):
-        target.vel_y = min(target.vel_y, -3.0)
-        target.y -= 2
-    if hasattr(target, "on_ground"):
-        target.on_ground = False
+    target.vel_y = min(target.vel_y, -3.0)
+    target.y -= 2
+    target.on_ground = False
     target.hit_stun_timer = max(target.hit_stun_timer, HIT_STUN_FRAMES)
     target.hurt_flash_timer = max(target.hurt_flash_timer, HURT_FLASH_FRAMES)
     if hasattr(target, "hurt_anim_timer"):
