@@ -201,6 +201,7 @@ class Player:
                     self.aerial_attack_used = True
 
             # Flying kick: lock forward velocity during strike for committed lunge
+            # Allow steering backwards to brake; otherwise maintain forward momentum
             if (
                 not self.on_ground
                 and self.current_attack_type == "aerial_heavy"
@@ -210,7 +211,9 @@ class Player:
                 strike_start = self.attack_anticipation_frames
                 strike_end = strike_start + self.attack_strike_frames
                 if strike_start <= elapsed < strike_end:
-                    self.vel_x = self.facing * AERIAL_HEAVY_FORWARD_VEL
+                    opposite_key = pygame.K_LEFT if self.facing > 0 else pygame.K_RIGHT
+                    if not keys[opposite_key]:
+                        self.vel_x = self.facing * AERIAL_HEAVY_FORWARD_VEL
         self.prev_primary_pressed = primary_pressed
         self.prev_secondary_pressed = secondary_pressed
 
