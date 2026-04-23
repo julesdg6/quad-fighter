@@ -20,6 +20,16 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## Screenshots
+
+### Gameplay Overview
+
+![Gameplay overview](docs/screenshots/gameplay-overview.png)
+
+### Combat Hit Feedback
+
+![Combat hit feedback](docs/screenshots/combat-hit-feedback.png)
+
 ## Features Implemented
 
 - Player movement with lane-based depth
