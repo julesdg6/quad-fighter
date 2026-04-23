@@ -77,7 +77,8 @@ class Player:
         self.hurt_flash_timer = 0
         self.hurt_anim_timer = 0
         self.facing = 1
-        self.health = 100
+        self.max_health = 100
+        self.health = self.max_health
         self.weapon_name = None
         self.weapon_hits_remaining = 0
         self.weapon_damage_bonus = 0
@@ -192,7 +193,6 @@ class Player:
         strike_end = strike_start + self.attack_strike_frames
         if elapsed < strike_start or elapsed >= strike_end:
             return None
-        attack_width = 24 + self.weapon_range_bonus
         attack_width = self.attack_width + self.weapon_range_bonus
         attack_height = self.attack_height
         if self.facing > 0:

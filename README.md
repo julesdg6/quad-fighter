@@ -31,6 +31,10 @@ python main.py
 
 ![Combat hit feedback](docs/screenshots/combat-hit-feedback.png)
 
+### Level Polish Pass
+
+![Level polish](docs/screenshots/level-polish.png)
+
 ## Features Implemented
 
 - Side-scrolling stage with camera follow and world-space coordinates
@@ -39,10 +43,12 @@ python main.py
 - Enemy AI with chase + melee attacks, cooldown pacing, and player damage
 - End-of-level boss encounter with distinct silhouette and health bar
 - Simple combat system with distinct primary/secondary attack hitboxes and tuning
-- Enemy hurt stun, knockback, and brief hit flash feedback
+- Enemy hurt stun, knockback pop, attack windup tells, and brief hit flash feedback
 - Interactive environment objects (crates, barrels, and pickup pipe weapon)
 - Breakable objects with health and simple break flash effect
 - Weapon pickup that boosts attack range/damage for a limited number of hits
+- Health food pickups (placed in level and dropped from crates)
+- Enemy roster with raider + heavier brawler variants
 - Health values and simple HUD (enemy count, stage progress, weapon state)
 - Visible lane/floor band for depth readability
 - Procedural named-pose fighter animation (idle/walk/jump/attack/hurt)

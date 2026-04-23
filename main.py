@@ -26,6 +26,11 @@ CAMERA_FOLLOW_RATIO = 0.45
 STAGE_CLEAR_X = WORLD_WIDTH - 360
 BOSS_TRIGGER_X = WORLD_WIDTH - 520
 BOSS_SPAWN_X = WORLD_WIDTH - 220
+BOSS_INTRO_FRAMES = 90
+BOSS_CAMERA_CENTER_WEIGHT = 0.5
+BOSS_CAMERA_FORWARD_OFFSET_RATIO = 0.2
+FOOD_HEAL_AMOUNT = 28
+MID_SECTION_START_X = 780
 QUAD_FIGHTER_AUTO_EXIT_FRAMES = int(os.environ.get("QUAD_FIGHTER_AUTO_EXIT_FRAMES", "0"))
 QUAD_FIGHTER_SCREENSHOT_PATH = os.environ.get("QUAD_FIGHTER_SCREENSHOT_PATH")
 SPAWN_PLAYER_AHEAD = 60
@@ -60,13 +65,17 @@ spawn_cursor = 0
 stage_complete = False
 boss_spawned = False
 boss_defeated = False
+boss_intro_timer = 0
+section_name = None
+section_message = ""
+section_message_timer = 0
 
 enemy_spawn_zones = [
-    {"trigger_x": 260, "count": 1},
-    {"trigger_x": 760, "count": 2},
-    {"trigger_x": 1280, "count": 1},
-    {"trigger_x": 1800, "count": 2},
-    {"trigger_x": 2360, "count": 1},
+    {"trigger_x": 260, "count": 1, "variants": ["raider"]},
+    {"trigger_x": 760, "count": 2, "variants": ["raider", "brawler"]},
+    {"trigger_x": 1280, "count": 1, "variants": ["brawler"]},
+    {"trigger_x": 1800, "count": 2, "variants": ["raider", "brawler"]},
+    {"trigger_x": 2360, "count": 1, "variants": ["brawler"]},
 ]
 enemies = []
 environment_objects = [
@@ -74,13 +83,17 @@ environment_objects = [
     EnvironmentObject("barrel", 980, HEIGHT - 108, 38, 56, health=45, solid=True),
     EnvironmentObject("pipe", 1150, HEIGHT - 72, 28, 10),
     EnvironmentObject("crate", 1540, HEIGHT - 96, 44, 44, health=35, solid=True),
+    EnvironmentObject("food", 1680, HEIGHT - 70, 26, 20),
     EnvironmentObject("barrel", 2120, HEIGHT - 108, 38, 56, health=45, solid=True),
     EnvironmentObject("crate", 2620, HEIGHT - 96, 44, 44, health=35, solid=True),
 ]
 break_effects = []
 
 
-def spawn_enemies(player_x, trigger_x, count):
+def spawn_enemies(player_x, zone):
+    trigger_x = zone["trigger_x"]
+    count = zone["count"]
+    variants = zone.get("variants") or ["raider"]
     spawned = []
     for i in range(count):
         spawn_x = max(
@@ -88,7 +101,8 @@ def spawn_enemies(player_x, trigger_x, count):
             trigger_x + SPAWN_TRIGGER_OFFSET + i * SPAWN_TRIGGER_SPACING,
         )
         spawn_x = min(WORLD_WIDTH - SPAWN_WORLD_RIGHT_PADDING, spawn_x)
-        enemy = Enemy(spawn_x, DEFAULT_ENEMY_GROUND_Y, WORLD_WIDTH, HEIGHT)
+        variant_index = min(i, len(variants) - 1)
+        enemy = Enemy(spawn_x, DEFAULT_ENEMY_GROUND_Y, WORLD_WIDTH, HEIGHT, variant=variants[variant_index])
         enemy.ground_y = max(
             LANE_TOP,
             min(
@@ -134,12 +148,15 @@ while running:
 
         while spawn_cursor < len(enemy_spawn_zones) and player.x >= enemy_spawn_zones[spawn_cursor]["trigger_x"]:
             zone = enemy_spawn_zones[spawn_cursor]
-            enemies.extend(spawn_enemies(player.x, zone["trigger_x"], zone["count"]))
+            enemies.extend(spawn_enemies(player.x, zone))
             spawn_cursor += 1
 
         for enemy in enemies:
             if enemy.health > 0:
-                enemy.update(player)
+                if boss_intro_timer > 0 and enemy.is_boss:
+                    enemy.facing = -1 if player.x < enemy.x else 1
+                else:
+                    enemy.update(player)
 
         if (
             not boss_spawned
@@ -152,6 +169,10 @@ while running:
             boss.y = boss.ground_y
             enemies.append(boss)
             boss_spawned = True
+            boss_intro_timer = BOSS_INTRO_FRAMES
+            section_name = "boss"
+            section_message = "BOSS ENCOUNTER"
+            section_message_timer = 90
 
         attack_started = player.attack_id != last_attack_id
         if attack_started:
@@ -202,6 +223,8 @@ while running:
                     break_center_x = obj.x + obj.width / 2
                     break_center_y = obj.y + obj.height / 2
                     break_effects.append({"x": break_center_x, "y": break_center_y, "timer": BREAK_EFFECT_FRAMES})
+                    if obj.kind == "crate":
+                        environment_objects.append(EnvironmentObject("food", obj.x + 8, HEIGHT - 70, 26, 20))
                     if obj.kind == "barrel":
                         environment_objects.append(
                             EnvironmentObject("pipe", obj.x + 6, HEIGHT - 72, 28, 10)
@@ -212,6 +235,13 @@ while running:
             player.consume_weapon_hit()
 
         player_rect = player.get_rect()
+        for obj in list(environment_objects):
+            if obj.kind != "food":
+                continue
+            if not player_rect.colliderect(obj.get_rect()):
+                continue
+            player.health = min(player.max_health, player.health + FOOD_HEAL_AMOUNT)
+            environment_objects.remove(obj)
         for enemy in enemies:
             if enemy.health <= 0:
                 continue
@@ -249,7 +279,15 @@ while running:
         if effect["timer"] <= 0:
             break_effects.remove(effect)
 
-    camera_target = player.x + player.width / 2 - WIDTH * CAMERA_FOLLOW_RATIO
+    boss_enemy = next((enemy for enemy in enemies if enemy.is_boss), None)
+    if boss_enemy is not None:
+        focus_x = (
+            (player.x + boss_enemy.x) * BOSS_CAMERA_CENTER_WEIGHT
+            + boss_enemy.width * BOSS_CAMERA_FORWARD_OFFSET_RATIO
+        )
+        camera_target = focus_x - WIDTH * 0.5
+    else:
+        camera_target = player.x + player.width / 2 - WIDTH * CAMERA_FOLLOW_RATIO
     camera_x = max(0, min(int(camera_target), WORLD_WIDTH - WIDTH))
     if player.x < camera_x + 12:
         player.x = camera_x + 12
@@ -257,7 +295,30 @@ while running:
     stage_complete = (
         boss_spawned
         and boss_defeated
+        and player.x >= STAGE_CLEAR_X
     )
+    if boss_intro_timer > 0:
+        boss_intro_timer -= 1
+    if section_message_timer > 0:
+        section_message_timer -= 1
+
+    if not boss_spawned:
+        if player.x < MID_SECTION_START_X:
+            next_section = "opening"
+            next_message = "OPENING - PUSH FORWARD"
+        else:
+            next_section = "mid"
+            next_message = "MID STAGE - CLEAR THE STREET"
+    elif boss_defeated:
+        next_section = "exit"
+        next_message = "BOSS DOWN - REACH THE EXIT"
+    else:
+        next_section = "boss"
+        next_message = "FINAL AREA - DEFEAT THE BOSS"
+    if next_section != section_name:
+        section_name = next_section
+        section_message = next_message
+        section_message_timer = 120
 
     # Draw
     lane_height = LANE_BOTTOM - LANE_TOP
@@ -324,7 +385,6 @@ while running:
             2,
         )
 
-    boss_enemy = next((enemy for enemy in enemies if enemy.is_boss), None)
     regular_enemy_count = len([enemy for enemy in enemies if not enemy.is_boss])
     if boss_enemy is not None:
         enemy_status = "Boss: ENGAGED"
@@ -345,7 +405,7 @@ while running:
     weapon_text = "Weapon: FISTS"
     if player.weapon_name is not None:
         weapon_text = f"Weapon: {player.weapon_name.upper()} ({player.weapon_hits_remaining})"
-    hud_text = f"Player HP: {player.health}   {enemy_status}   Stage: {progress_pct}%   {weapon_text}"
+    hud_text = f"Player HP: {player.health}/{player.max_health}   {enemy_status}   Stage: {progress_pct}%   {weapon_text}"
     screen.blit(font.render(hud_text, True, (220, 220, 220)), (16, 16))
     if boss_enemy is not None:
         boss_label = font.render("BOSS", True, (250, 220, 220))
@@ -355,9 +415,12 @@ while running:
         pygame.draw.rect(screen, (70, 22, 22), bar_rect)
         pygame.draw.rect(screen, (190, 62, 62), (bar_rect.x, bar_rect.y, int(bar_rect.width * boss_ratio), bar_rect.height))
         pygame.draw.rect(screen, (220, 220, 220), bar_rect, 2)
+    if section_message_timer > 0:
+        section_text = font.render(section_message, True, (235, 235, 235))
+        screen.blit(section_text, (WIDTH // 2 - section_text.get_width() // 2, 68))
     if stage_complete:
-        clear_text = font.render("BOSS DEFEATED - STAGE COMPLETE", True, (240, 240, 240))
-        screen.blit(clear_text, (WIDTH // 2 - clear_text.get_width() // 2, 70))
+        clear_text = font.render("LEVEL COMPLETE", True, (245, 245, 245))
+        screen.blit(clear_text, (WIDTH // 2 - clear_text.get_width() // 2, 98))
 
     pygame.display.flip()
     frame_count += 1
