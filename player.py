@@ -18,6 +18,12 @@ class Player:
         self.on_ground = True
         self.attack = False
         self.attack_timer = 0
+        self.attack_cooldown_timer = 0
+        self.attack_cooldown_frames = 18
+        self.attack_duration_frames = 8
+        self.prev_attack_pressed = False
+        self.attack_id = 0
+        self.facing = 1
         self.health = 100
 
     def update(self):
@@ -26,25 +32,33 @@ class Player:
         lane_delta = 0.0
         if keys[pygame.K_LEFT]:
             self.vel_x = -self.speed
+            self.facing = -1
         if keys[pygame.K_RIGHT]:
             self.vel_x = self.speed
-        if keys[pygame.K_UP]:
-            lane_delta -= self.lane_speed
-        elif keys[pygame.K_DOWN]:
-            lane_delta += self.lane_speed
+            self.facing = 1
+        if self.on_ground:
+            if keys[pygame.K_UP]:
+                lane_delta -= self.lane_speed
+            elif keys[pygame.K_DOWN]:
+                lane_delta += self.lane_speed
 
         if keys[pygame.K_SPACE] and self.on_ground:
             self.vel_y = self.jump_power
             self.on_ground = False
 
-        if keys[pygame.K_z]:
-            self.attack = True
-            self.attack_timer = 10
-        else:
-            self.attack = False
+        attack_pressed = keys[pygame.K_z]
+        if attack_pressed and not self.prev_attack_pressed and self.attack_cooldown_timer <= 0:
+            self.attack_timer = self.attack_duration_frames
+            self.attack_cooldown_timer = self.attack_cooldown_frames
+            self.attack_id += 1
+        self.prev_attack_pressed = attack_pressed
 
         if self.attack_timer > 0:
             self.attack_timer -= 1
+        self.attack = self.attack_timer > 0
+
+        if self.attack_cooldown_timer > 0:
+            self.attack_cooldown_timer -= 1
 
         self.vel_y += self.gravity
         self.x += self.vel_x
@@ -67,14 +81,31 @@ class Player:
     def get_attack_rect(self):
         if self.attack_timer <= 0:
             return None
+        attack_width = 24
+        attack_height = 18
+        if self.facing >= 0:
+            attack_x = int(self.x + self.width + 2)
+        else:
+            attack_x = int(self.x - attack_width - 2)
         return pygame.Rect(
-            int(self.x + self.width),
+            attack_x,
             int(self.y + self.height // 3),
-            20,
-            14,
+            attack_width,
+            attack_height,
         )
 
     def draw(self, screen):
+        shadow_width = int(self.width * (0.9 - min(0.5, max(0.0, (self.ground_y - self.y) / 120.0))))
+        shadow_width = max(10, shadow_width)
+        shadow_height = max(4, int(shadow_width * 0.35))
+        shadow_rect = pygame.Rect(
+            int(self.x + self.width / 2 - shadow_width / 2),
+            int(self.ground_y + self.height + 3 - shadow_height / 2),
+            shadow_width,
+            shadow_height,
+        )
+        pygame.draw.ellipse(screen, (45, 45, 45), shadow_rect)
+
         pygame.draw.rect(screen, (192, 192, 192), self.get_rect())
         pygame.draw.line(
             screen,

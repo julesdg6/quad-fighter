@@ -19,8 +19,13 @@ class Enemy:
         self.on_ground = True
         self.health = 100
         self.hit_stun_timer = 0
+        self.hurt_flash_timer = 0
+        self.last_hit_attack_id = -1
 
     def update(self, player):
+        if self.health <= 0:
+            return
+
         if self.hit_stun_timer > 0:
             self.hit_stun_timer -= 1
             self.vel_x = 0
@@ -50,11 +55,26 @@ class Enemy:
             self.vel_y = 0.0
             self.on_ground = True
 
+        if self.hurt_flash_timer > 0:
+            self.hurt_flash_timer -= 1
+
     def get_rect(self):
         return pygame.Rect(int(self.x), int(self.y), self.width, self.height)
 
     def draw(self, screen):
-        pygame.draw.rect(screen, (100, 100, 100), self.get_rect())
+        shadow_width = int(self.width * (0.9 - min(0.5, max(0.0, (self.ground_y - self.y) / 120.0))))
+        shadow_width = max(10, shadow_width)
+        shadow_height = max(4, int(shadow_width * 0.35))
+        shadow_rect = pygame.Rect(
+            int(self.x + self.width / 2 - shadow_width / 2),
+            int(self.ground_y + self.height + 3 - shadow_height / 2),
+            shadow_width,
+            shadow_height,
+        )
+        pygame.draw.ellipse(screen, (35, 35, 35), shadow_rect)
+
+        body_color = (220, 220, 220) if self.hurt_flash_timer > 0 else (100, 100, 100)
+        pygame.draw.rect(screen, body_color, self.get_rect())
         pygame.draw.line(
             screen,
             (20, 20, 20),

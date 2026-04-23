@@ -24,17 +24,18 @@ python main.py
 
 - Player movement with lane-based depth
 - Basic enemy AI (chase player)
-- Simple combat system with attack collision detection
-- Knockback mechanics
-- Health values and simple HUD
+- Simple combat system with forward attack hitbox and attack cooldown
+- Enemy hurt stun, knockback, and brief hit flash feedback
+- Two-enemy one-screen flow with clear message after both are defeated
+- Health values and simple HUD (including enemy HP)
 - Basic hitbox visualization
+- Visible lane/floor band for depth readability
 - 60 FPS game loop
 
 ## Next Steps
 
-1. Add more enemies
-2. Implement health system
-3. Add HUD elements
-4. Expand to 4-player support
-5. Improve AI behavior
-6. Add attack animations
+1. Add additional enemy behavior variety
+2. Expand player combat options
+3. Improve procedural character posing
+4. Expand to local co-op
+5. Add stage progression
