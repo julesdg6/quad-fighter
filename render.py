@@ -18,6 +18,13 @@ SHOULDER_SPAN_RATIO = 0.24
 HIP_SPAN_RATIO = 0.2
 SHADOW_DEPTH_BASE_SCALE = 0.82
 SHADOW_DEPTH_SCALE_RANGE = 0.35
+JOINT_SIZE_RATIO = 0.33
+MIN_HAND_RADIUS = 3
+HAND_SIZE_RATIO = 0.09
+MIN_FOOT_LENGTH = 7
+FOOT_LENGTH_RATIO = 0.26
+MIN_FOOT_HEIGHT = 3
+FOOT_HEIGHT_RATIO = 0.06
 
 
 def _joint_midpoint(a, b, lift, bend):
@@ -69,7 +76,12 @@ def _draw_bent_limb(
 ):
     _draw_segment(screen, upper_color, start, mid, upper_width, max(2, upper_width * 0.88))
     _draw_segment(screen, lower_color, mid, end, lower_width, max(2, lower_width * 0.78))
-    pygame.draw.circle(screen, joint_color, mid, max(2, int(min(upper_width, lower_width) * 0.33)))
+    pygame.draw.circle(
+        screen,
+        joint_color,
+        mid,
+        max(2, int(min(upper_width, lower_width) * JOINT_SIZE_RATIO)),
+    )
 
 
 def _point_lerp(a, b, ratio):
@@ -227,13 +239,6 @@ def draw_fighter(
         front_lift = height * 0.1 * snap
         back_lift = height * 0.16 * snap
         stance_drop = height * 0.06 * snap
-    elif pose == "defeated":
-        torso_tilt = 0.34 * facing
-        torso_shift_x = -facing * width * 0.1
-        front_stride = width * 0.03
-        back_stride = -width * 0.03
-        stance_drop = height * 0.14
-
     torso_shift_x += base_torso_shift
     torso_tilt += base_torso_tilt
 
@@ -441,12 +446,12 @@ def draw_fighter(
         lower_arm_width,
     )
 
-    hand_radius = max(3, int(width * 0.09))
+    hand_radius = max(MIN_HAND_RADIUS, int(width * HAND_SIZE_RATIO))
     pygame.draw.circle(screen, hand_color, rear_hand, hand_radius)
     pygame.draw.circle(screen, hand_color, front_hand, hand_radius)
 
-    foot_len = max(7, int(width * 0.26))
-    foot_height = max(3, int(height * 0.06))
+    foot_len = max(MIN_FOOT_LENGTH, int(width * FOOT_LENGTH_RATIO))
+    foot_height = max(MIN_FOOT_HEIGHT, int(height * FOOT_HEIGHT_RATIO))
     rear_foot_poly = [
         (int(rear_foot[0] - facing * foot_len * 0.2), int(rear_foot[1] - 1)),
         (int(rear_foot[0] + facing * foot_len), int(rear_foot[1] - 1)),
