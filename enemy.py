@@ -127,8 +127,10 @@ class Enemy:
         arm_reach_y = shoulder_y + int(height * 0.07)
         rear_arm_x = center_x - self.facing * int(width * 0.5)
         rear_arm_y = shoulder_y + int(height * 0.11)
-        pygame.draw.line(screen, (70, 70, 70), (left_shoulder_x, shoulder_y), (arm_reach_x, arm_reach_y), 3)
-        pygame.draw.line(screen, (60, 60, 60), (right_shoulder_x, shoulder_y), (rear_arm_x, rear_arm_y), 3)
+        forward_shoulder_x = right_shoulder_x if self.facing > 0 else left_shoulder_x
+        rear_shoulder_x = left_shoulder_x if self.facing > 0 else right_shoulder_x
+        pygame.draw.line(screen, (70, 70, 70), (forward_shoulder_x, shoulder_y), (arm_reach_x, arm_reach_y), 3)
+        pygame.draw.line(screen, (60, 60, 60), (rear_shoulder_x, shoulder_y), (rear_arm_x, rear_arm_y), 3)
 
         left_hip = (center_x - int(width * 0.16), hip_y)
         right_hip = (center_x + int(width * 0.16), hip_y)
