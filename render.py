@@ -19,13 +19,16 @@ SHOULDER_SPAN_RATIO = 0.24
 HIP_SPAN_RATIO = 0.2
 SHADOW_DEPTH_BASE_SCALE = 0.82
 SHADOW_DEPTH_SCALE_RANGE = 0.35
-JOINT_SIZE_RATIO = 0.33
+JOINT_SIZE_RATIO = 0.24  # smaller dots keep joints readable without overpowering limb shapes
 MIN_HAND_RADIUS = 3
 HAND_SIZE_RATIO = 0.09
 MIN_FOOT_LENGTH = 7
 FOOT_LENGTH_RATIO = 0.26
 MIN_FOOT_HEIGHT = 3
 FOOT_HEIGHT_RATIO = 0.06
+NECK_WIDTH_RATIO = 0.11
+IDLE_STANCE_DROP_RATIO = 0.035  # slight crouch depth for the fighting guard stance
+FIST_WIDTH_MULTIPLIER = 1.8  # rectangular fist wider than the old circle hand radius
 
 
 def _joint_midpoint(a, b, lift, bend):
@@ -362,6 +365,13 @@ def draw_fighter(
             back_lift = height * 0.16
             stance_drop = height * 0.03
             attack_extension = 0.3 * settle
+    elif pose == "idle":
+        # Martial arts guard: staggered feet, slight crouch
+        front_stride = width * 0.12
+        back_stride = -width * 0.05
+        stance_drop = height * IDLE_STANCE_DROP_RATIO
+        torso_shift_x = base_torso_shift
+        torso_tilt = -0.02 * facing
     torso_tilt += base_torso_tilt
 
     torso_center_x = center_x + torso_shift_x
@@ -403,17 +413,21 @@ def draw_fighter(
     ]
 
     head_poly = [
-        (int(head_center[0] - head_radius * 0.72), int(head_center[1] - head_radius)),
-        (int(head_center[0] + head_radius * 0.58), int(head_center[1] - head_radius)),
-        (int(head_center[0] + head_radius), int(head_center[1] - head_radius * 0.25)),
-        (int(head_center[0] + head_radius * 0.86), int(head_center[1] + head_radius * 0.76)),
-        (int(head_center[0] - head_radius * 0.9), int(head_center[1] + head_radius * 0.72)),
-        (int(head_center[0] - head_radius), int(head_center[1] - head_radius * 0.15)),
+        (int(head_center[0] - head_radius * 0.56), int(head_center[1] - head_radius * 0.94)),
+        (int(head_center[0] + head_radius * 0.50), int(head_center[1] - head_radius * 0.94)),
+        (int(head_center[0] + head_radius * 0.88), int(head_center[1] - head_radius * 0.30)),
+        (int(head_center[0] + head_radius * 0.82), int(head_center[1] + head_radius * 0.58)),
+        (int(head_center[0] + head_radius * 0.16), int(head_center[1] + head_radius * 0.96)),
+        (int(head_center[0] - head_radius * 0.16), int(head_center[1] + head_radius * 0.96)),
+        (int(head_center[0] - head_radius * 0.86), int(head_center[1] + head_radius * 0.58)),
+        (int(head_center[0] - head_radius * 0.90), int(head_center[1] - head_radius * 0.30)),
     ]
     hair_poly = [
-        (int(head_center[0] - head_radius * 0.76), int(head_center[1] - head_radius)),
-        (int(head_center[0] + head_radius * 0.62), int(head_center[1] - head_radius)),
-        (int(head_center[0] + head_radius * 0.15), int(head_center[1] - head_radius * 1.36)),
+        (int(head_center[0] - head_radius * 0.56), int(head_center[1] - head_radius * 0.94)),
+        (int(head_center[0] + head_radius * 0.50), int(head_center[1] - head_radius * 0.94)),
+        (int(head_center[0] + head_radius * 0.28), int(head_center[1] - head_radius * 1.40)),
+        (int(head_center[0] - head_radius * 0.08), int(head_center[1] - head_radius * 1.46)),
+        (int(head_center[0] - head_radius * 0.44), int(head_center[1] - head_radius * 1.24)),
     ]
 
     face_tip_x = int(head_center[0] + facing * (head_radius + 2))
@@ -490,6 +504,16 @@ def draw_fighter(
         rear_hand = (
             int(rear_shoulder[0] - facing * width * 0.18),
             int(rear_shoulder[1] + height * 0.14),
+        )
+    elif pose == "idle":
+        # Guard position: front hand raised at chest, rear hand guarding chin
+        front_hand = (
+            int(front_shoulder[0] + facing * width * 0.08),
+            int(front_shoulder[1] + height * 0.14),
+        )
+        rear_hand = (
+            int(rear_shoulder[0] - facing * width * 0.10),
+            int(rear_shoulder[1] + height * 0.12),
         )
     else:
         arm_swing = walk_sin * width * 0.16 * (0.15 + move_ratio * 0.75)
@@ -572,6 +596,31 @@ def draw_fighter(
             _point_lerp(torso_mid_right, torso_mid_left, 0.18),
         ]
         pygame.draw.polygon(screen, torso_color, torso_overlay)
+
+    # Gi collar – V-shaped lapel lines on chest
+    collar_top_y = shoulder_y + max(1, int((hip_y - shoulder_y) * 0.04))
+    collar_v_tip = (int(torso_center_x), int(shoulder_y + torso_len * 0.40))
+    collar_left_pt = (int(torso_center_x - shoulder_span * 0.36), collar_top_y)
+    collar_right_pt = (int(torso_center_x + shoulder_span * 0.36), collar_top_y)
+    collar_col = (
+        max(0, chest_color[0] - 40),
+        max(0, chest_color[1] - 40),
+        max(0, chest_color[2] - 40),
+    )
+    collar_w = max(1, upper_arm_width // 3)
+    pygame.draw.line(screen, collar_col, collar_left_pt, collar_v_tip, collar_w)
+    pygame.draw.line(screen, collar_col, collar_right_pt, collar_v_tip, collar_w)
+
+    # Neck
+    neck_w = max(3, int(width * NECK_WIDTH_RATIO))
+    neck_poly = [
+        (int(head_center[0] - neck_w), int(head_center[1] + head_radius * 0.68)),
+        (int(head_center[0] + neck_w), int(head_center[1] + head_radius * 0.68)),
+        (int(torso_center_x + neck_w + 1), shoulder_y),
+        (int(torso_center_x - neck_w - 1), shoulder_y),
+    ]
+    pygame.draw.polygon(screen, head_color, neck_poly)
+
     pygame.draw.polygon(screen, head_color, head_poly)
     if hair_color != head_color:
         pygame.draw.polygon(screen, hair_color, hair_poly)
@@ -601,23 +650,28 @@ def draw_fighter(
         lower_arm_width,
     )
 
-    hand_radius = max(MIN_HAND_RADIUS, int(width * HAND_SIZE_RATIO))
-    pygame.draw.circle(screen, hand_color, rear_hand, hand_radius)
-    pygame.draw.circle(screen, hand_color, front_hand, hand_radius)
+    hand_w = max(MIN_HAND_RADIUS * 2, int(width * HAND_SIZE_RATIO * FIST_WIDTH_MULTIPLIER))
+    hand_h = max(MIN_HAND_RADIUS, int(hand_w * 0.72))
+    rear_fist_rect = pygame.Rect(rear_hand[0] - hand_w // 2, rear_hand[1] - hand_h // 2, hand_w, hand_h)
+    front_fist_rect = pygame.Rect(front_hand[0] - hand_w // 2, front_hand[1] - hand_h // 2, hand_w, hand_h)
+    pygame.draw.rect(screen, hand_color, rear_fist_rect, border_radius=2)
+    pygame.draw.rect(screen, hand_color, front_fist_rect, border_radius=2)
 
     foot_len = max(MIN_FOOT_LENGTH, int(width * FOOT_LENGTH_RATIO))
     foot_height = max(MIN_FOOT_HEIGHT, int(height * FOOT_HEIGHT_RATIO))
     rear_foot_poly = [
-        (int(rear_foot[0] - facing * foot_len * 0.2), int(rear_foot[1] - 1)),
-        (int(rear_foot[0] + facing * foot_len), int(rear_foot[1] - 1)),
-        (int(rear_foot[0] + facing * foot_len * 0.82), int(rear_foot[1] + foot_height)),
-        (int(rear_foot[0] - facing * foot_len * 0.26), int(rear_foot[1] + foot_height)),
+        (int(rear_foot[0] - facing * foot_len * 0.22), int(rear_foot[1])),
+        (int(rear_foot[0] + facing * foot_len * 0.88), int(rear_foot[1])),
+        (int(rear_foot[0] + facing * foot_len), int(rear_foot[1] + foot_height * 0.52)),
+        (int(rear_foot[0] + facing * foot_len * 0.84), int(rear_foot[1] + foot_height)),
+        (int(rear_foot[0] - facing * foot_len * 0.28), int(rear_foot[1] + foot_height)),
     ]
     front_foot_poly = [
-        (int(front_foot[0] - facing * foot_len * 0.2), int(front_foot[1] - 1)),
-        (int(front_foot[0] + facing * foot_len), int(front_foot[1] - 1)),
-        (int(front_foot[0] + facing * foot_len * 0.82), int(front_foot[1] + foot_height)),
-        (int(front_foot[0] - facing * foot_len * 0.26), int(front_foot[1] + foot_height)),
+        (int(front_foot[0] - facing * foot_len * 0.22), int(front_foot[1])),
+        (int(front_foot[0] + facing * foot_len * 0.88), int(front_foot[1])),
+        (int(front_foot[0] + facing * foot_len), int(front_foot[1] + foot_height * 0.52)),
+        (int(front_foot[0] + facing * foot_len * 0.84), int(front_foot[1] + foot_height)),
+        (int(front_foot[0] - facing * foot_len * 0.28), int(front_foot[1] + foot_height)),
     ]
     pygame.draw.polygon(screen, foot_color, rear_foot_poly)
     pygame.draw.polygon(screen, foot_color, front_foot_poly)
