@@ -200,13 +200,15 @@ class Player:
             return None
         attack_width = self.attack_width + self.weapon_range_bonus
         attack_height = self.attack_height
+        # Secondary (kick) hitbox sits at lower body/leg level
+        y_ratio = 0.55 if self.current_attack_type == "secondary" else 0.30
         if self.facing > 0:
             attack_x = int(self.x + self.width + self.attack_offset)
         else:
             attack_x = int(self.x - attack_width - self.attack_offset)
         return pygame.Rect(
             attack_x,
-            int(self.y + self.height * 0.3),
+            int(self.y + self.height * y_ratio),
             attack_width,
             attack_height,
         )
@@ -261,7 +263,7 @@ class Player:
         elif not self.on_ground:
             pose = "jump"
         elif self.is_attacking():
-            pose = "attack"
+            pose = "kick" if self.current_attack_type == "secondary" else "attack"
         elif abs(self.vel_x) > 0.05:
             pose = "walk"
         else:

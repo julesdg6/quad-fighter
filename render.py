@@ -13,6 +13,7 @@ ATTACK_STRIKE_END = 0.62
 MIN_ATTACK_PHASE_DURATION = 0.05
 MAX_ATTACK_ANTICIPATION_END = 0.9
 MAX_ATTACK_STRIKE_END = 0.95
+MIN_PHASE_DIVISOR = 0.001
 JUMP_BOB_OFFSET = 4.0
 SHOULDER_SPAN_RATIO = 0.24
 HIP_SPAN_RATIO = 0.2
@@ -230,6 +231,49 @@ def draw_fighter(
             back_lift = height * 0.02 * settle
             stance_drop = height * 0.04 * settle
             attack_extension = max(0.0, 0.6 * settle)
+    elif pose == "kick":
+        # Secondary attack: heavy kick - front leg chambers then extends
+        anticipation_end = _clamp(
+            attack_anticipation_end,
+            MIN_ATTACK_PHASE_DURATION,
+            MAX_ATTACK_ANTICIPATION_END,
+        )
+        strike_end = _clamp(
+            attack_strike_end,
+            anticipation_end + MIN_ATTACK_PHASE_DURATION,
+            MAX_ATTACK_STRIKE_END,
+        )
+        if clamped_attack_ratio < anticipation_end:
+            phase = clamped_attack_ratio / anticipation_end
+            # Chamber: knee draws back and rises
+            torso_shift_x = -facing * width * (0.05 + 0.04 * phase)
+            torso_tilt = (0.07 + 0.06 * phase) * facing
+            front_stride = -width * (0.06 + 0.18 * phase)
+            back_stride = width * 0.10
+            front_lift = height * (0.08 + 0.28 * phase)
+            stance_drop = height * 0.04
+            attack_extension = 0.0
+        elif clamped_attack_ratio < strike_end:
+            phase = (clamped_attack_ratio - anticipation_end) / (strike_end - anticipation_end)
+            # Strike: leg shoots forward at body height
+            torso_shift_x = facing * width * (0.08 + 0.12 * phase)
+            torso_tilt = (-0.12 + 0.04 * phase) * facing
+            front_stride = width * (0.14 + 0.32 * phase)
+            back_stride = -width * 0.06
+            front_lift = height * (0.36 - 0.10 * phase)
+            back_lift = height * 0.04
+            stance_drop = height * 0.06
+            attack_extension = phase
+        else:
+            phase = (clamped_attack_ratio - strike_end) / max(MIN_PHASE_DIVISOR, 1.0 - strike_end)
+            settle = 1.0 - phase
+            torso_shift_x = facing * width * 0.08 * settle
+            torso_tilt = -0.10 * facing * settle
+            front_stride = width * 0.24 * settle
+            front_lift = height * 0.16 * settle
+            back_stride = -width * 0.06 * settle
+            stance_drop = height * 0.03 * settle
+            attack_extension = 0.4 * settle
     elif pose == "hurt":
         snap = max(0.0, min(1.0, hurt_ratio))
         torso_shift_x = -facing * width * (0.24 * snap)
@@ -335,6 +379,17 @@ def draw_fighter(
         rear_hand = (
             int(rear_shoulder[0] - facing * width * 0.24),
             int(rear_shoulder[1] + height * 0.18),
+        )
+    elif pose == "kick":
+        # Arms in guard/balance position while leg kicks
+        arm_guard = min(1.0, clamped_attack_ratio / max(0.01, attack_anticipation_end))
+        front_hand = (
+            int(front_shoulder[0] + facing * width * 0.08),
+            int(front_shoulder[1] + height * (0.20 + 0.06 * arm_guard)),
+        )
+        rear_hand = (
+            int(rear_shoulder[0] - facing * width * 0.04),
+            int(rear_shoulder[1] + height * 0.17),
         )
     else:
         arm_swing = walk_sin * width * 0.16 * (0.15 + move_ratio * 0.75)

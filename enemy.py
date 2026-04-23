@@ -56,6 +56,12 @@ BOSS_ATTACK_PROFILE = {
     "engage_distance": 96,
 }
 BOSS_MAX_HEALTH = 280
+BOSS_CHARGE_SPEED = 5.2
+BOSS_CHARGE_DURATION = 20
+BOSS_CHARGE_COOLDOWN = 90
+BOSS_CHARGE_TRIGGER_DIST = 280
+BOSS_PHASE2_HEALTH_RATIO = 0.5
+BOSS_PHASE2_MIN_COOLDOWN = 22
 
 
 class Enemy:
@@ -115,6 +121,8 @@ class Enemy:
         self.last_hit_player_attack_id = -1
         self.defeat_handled = False
         self.facing = -1
+        self.charge_timer = 0
+        self.charge_cooldown_timer = 0
 
     def update(self, player):
         if self.hurt_flash_timer > 0:
@@ -132,21 +140,41 @@ class Enemy:
             self.hurt_anim_timer = max(self.hurt_anim_timer, int(HURT_ANIMATION_DURATION_FRAMES))
             self.vel_x = 0
             self.attack_timer = 0
+            self.charge_timer = 0
         elif self.attack_timer > 0:
             self.attack_timer -= 1
             self.vel_x = 0
         else:
             player_center_x = player.x + player.width * 0.5
             enemy_center_x = self.x + self.width * 0.5
+
+            # Boss charge behaviour
+            effective_speed = self.speed
+            if self.is_boss:
+                if self.charge_timer > 0:
+                    self.charge_timer -= 1
+                    effective_speed = BOSS_CHARGE_SPEED
+                elif self.charge_cooldown_timer > 0:
+                    self.charge_cooldown_timer -= 1
+                else:
+                    dist = abs(player_center_x - enemy_center_x)
+                    if dist > BOSS_CHARGE_TRIGGER_DIST and not self.should_attack(player):
+                        self.charge_timer = BOSS_CHARGE_DURATION
+                        self.charge_cooldown_timer = BOSS_CHARGE_COOLDOWN
+
             if self.should_attack(player):
                 self.attack_timer = self.attack_duration_frames
-                self.attack_cooldown_timer = self.attack_cooldown_frames
+                # Phase-2 enrage: boss attacks faster below 50% health
+                cooldown = self.attack_cooldown_frames
+                if self.is_boss and self.health < BOSS_MAX_HEALTH * BOSS_PHASE2_HEALTH_RATIO:
+                    cooldown = max(BOSS_PHASE2_MIN_COOLDOWN, cooldown // 2)
+                self.attack_cooldown_timer = cooldown
                 self.attack_id += 1
                 self.vel_x = 0
             elif player_center_x > enemy_center_x + 4:
-                self.vel_x = self.speed
+                self.vel_x = effective_speed
             elif player_center_x < enemy_center_x - 4:
-                self.vel_x = -self.speed
+                self.vel_x = -effective_speed
             else:
                 self.vel_x = 0
 
