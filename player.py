@@ -115,7 +115,57 @@ class Player:
         )
         pygame.draw.ellipse(screen, (45, 45, 45), shadow_rect)
 
-        pygame.draw.rect(screen, (192, 192, 192), self.get_rect())
+        body_rect = self.get_rect()
+        center_x = body_rect.centerx
+        top_y = body_rect.top
+        bottom_y = body_rect.bottom
+        width = body_rect.width
+        height = body_rect.height
+
+        head_radius = max(6, int(width * 0.2))
+        head_center = (center_x, top_y + head_radius + 2)
+        shoulder_y = head_center[1] + head_radius + 4
+        hip_y = top_y + int(height * 0.58)
+        left_shoulder_x = center_x - int(width * 0.2)
+        right_shoulder_x = center_x + int(width * 0.2)
+
+        torso_points = [
+            (left_shoulder_x, shoulder_y),
+            (right_shoulder_x, shoulder_y),
+            (center_x + int(width * 0.3), hip_y),
+            (center_x - int(width * 0.3), hip_y),
+        ]
+        pygame.draw.polygon(screen, (172, 172, 172), torso_points)
+        pygame.draw.circle(screen, (205, 205, 205), head_center, head_radius)
+
+        face_tip_x = head_center[0] + self.facing * (head_radius + 2)
+        face_mid_y = head_center[1]
+        pygame.draw.polygon(
+            screen,
+            (145, 145, 145),
+            [
+                (face_tip_x, face_mid_y),
+                (head_center[0] + self.facing * (head_radius - 2), face_mid_y - 3),
+                (head_center[0] + self.facing * (head_radius - 2), face_mid_y + 3),
+            ],
+        )
+
+        arm_reach_x = center_x + self.facing * int(width * 0.6)
+        arm_reach_y = shoulder_y + int(height * 0.07)
+        rear_arm_x = center_x - self.facing * int(width * 0.5)
+        rear_arm_y = shoulder_y + int(height * 0.11)
+        forward_shoulder_x = right_shoulder_x if self.facing > 0 else left_shoulder_x
+        rear_shoulder_x = left_shoulder_x if self.facing > 0 else right_shoulder_x
+        pygame.draw.line(screen, (160, 160, 160), (forward_shoulder_x, shoulder_y), (arm_reach_x, arm_reach_y), 3)
+        pygame.draw.line(screen, (152, 152, 152), (rear_shoulder_x, shoulder_y), (rear_arm_x, rear_arm_y), 3)
+
+        left_hip = (center_x - int(width * 0.16), hip_y)
+        right_hip = (center_x + int(width * 0.16), hip_y)
+        left_foot = (center_x - int(width * 0.3), bottom_y)
+        right_foot = (center_x + int(width * 0.3), bottom_y)
+        pygame.draw.line(screen, (152, 152, 152), left_hip, left_foot, 4)
+        pygame.draw.line(screen, (152, 152, 152), right_hip, right_foot, 4)
+
         pygame.draw.line(
             screen,
             (60, 60, 60),
