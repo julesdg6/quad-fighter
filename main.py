@@ -333,7 +333,8 @@ while running:
             player.weapon_damage_bonus = 0
             player.weapon_range_bonus = 0
             enemies.clear()
-            environment_objects = build_environment_objects()
+            environment_objects.clear()
+            environment_objects.extend(build_environment_objects())
             break_effects.clear()
             spawn_cursor = 0
             stage_complete = False

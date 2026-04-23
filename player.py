@@ -9,6 +9,8 @@ SHADOW_OUTER_INFLATE_Y = 4
 SHADOW_OUTER_COLOR = (30, 30, 30)
 POST_ATTACK_FRAMES = 2
 CHARACTER_SCALE = 2
+PRIMARY_ATTACK_HITBOX_COLOR = (255, 220, 0)
+SECONDARY_ATTACK_HITBOX_COLOR = (255, 150, 64)
 
 ATTACK_PROFILES = {
     "primary": {
@@ -324,5 +326,9 @@ class Player:
         attack_rect = self.get_attack_rect()
         if attack_rect is not None:
             draw_attack_rect = attack_rect.move(-int(camera_x), 0)
-            hitbox_color = (255, 220, 0) if self.current_attack_type == "primary" else (255, 150, 64)
+            hitbox_color = (
+                PRIMARY_ATTACK_HITBOX_COLOR
+                if self.current_attack_type == "primary"
+                else SECONDARY_ATTACK_HITBOX_COLOR
+            )
             pygame.draw.rect(screen, hitbox_color, draw_attack_rect, 2)
