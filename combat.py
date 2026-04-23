@@ -1,4 +1,6 @@
-KNOCKBACK_DISTANCE = 20
+KNOCKBACK_DISTANCE = 30
+HIT_STUN_FRAMES = 14
+HURT_FLASH_FRAMES = 7
 
 
 def check_attack_collision(player, enemy):
@@ -15,6 +17,8 @@ def apply_knockback(target, source):
     else:
         target.x += KNOCKBACK_DISTANCE
     target.x = max(0, min(target.x, target.screen_width - target.width))
-    target.hit_stun_timer = 10
-    target.hurt_flash_timer = 6
+    target.hit_stun_timer = max(target.hit_stun_timer, HIT_STUN_FRAMES)
+    target.hurt_flash_timer = max(target.hurt_flash_timer, HURT_FLASH_FRAMES)
+    if hasattr(target, "hurt_anim_timer"):
+        target.hurt_anim_timer = max(target.hurt_anim_timer, HIT_STUN_FRAMES)
     target.last_hit_attack_id = source.attack_id

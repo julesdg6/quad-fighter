@@ -6,8 +6,8 @@ BASE_WALK_PHASE_SPEED = 4.2
 WALK_PHASE_SPEED_FROM_MOVE = 4.0
 IDLE_BOB_FREQUENCY = 2.2
 IDLE_BOB_AMPLITUDE = 1.4
-ATTACK_BASE_REACH = 0.62
-ATTACK_REACH_EXTENSION = 0.45
+ATTACK_BASE_REACH = 0.28
+ATTACK_REACH_EXTENSION = 0.9
 JUMP_BOB_OFFSET = 4.0
 
 
@@ -47,13 +47,14 @@ def draw_fighter(
     bottom_y = body_rect.bottom
 
     head_radius = max(6, int(width * 0.2))
-    shoulder_span = int(width * 0.22)
-    hip_span = int(width * 0.17)
+    shoulder_span = int(width * 0.24)
+    hip_span = int(width * 0.2)
     torso_len = int(height * 0.3)
 
     bob = math.sin(t * IDLE_BOB_FREQUENCY) * IDLE_BOB_AMPLITUDE
     torso_shift_x = 0.0
     torso_tilt = 0.0
+    stance_drop = 0.0
     shoulder_counter = 0.0
     front_stride = 0.0
     back_stride = 0.0
@@ -61,14 +62,19 @@ def draw_fighter(
     back_lift = 0.0
     front_hand = (0, 0)
     rear_hand = (0, 0)
+    attack_extension = 0.0
 
     if pose == "walk":
-        front_stride = walk_sin * width * 0.38
-        back_stride = -walk_sin * width * 0.32
-        front_lift = max(0.0, -walk_sin) * height * 0.14
-        back_lift = max(0.0, walk_sin) * height * 0.14
-        shoulder_counter = -walk_sin * width * 0.08
-        torso_tilt = -walk_sin * 0.05 * facing
+        stride = walk_sin * (0.36 + move_ratio * 0.18)
+        front_stride = stride * width
+        back_stride = -stride * width * 0.92
+        front_lift = max(0.0, -walk_sin) * height * 0.17
+        back_lift = max(0.0, walk_sin) * height * 0.17
+        shoulder_counter = -walk_sin * width * 0.11
+        torso_shift_x = facing * width * (0.04 + move_ratio * 0.02)
+        torso_tilt = (-0.08 - walk_sin * 0.03) * facing
+        stance_drop = height * 0.04
+        bob += math.sin(walk_phase * 2.0) * 0.8
     elif pose == "jump":
         bob -= JUMP_BOB_OFFSET
         torso_tilt = 0.06 * facing
@@ -76,26 +82,53 @@ def draw_fighter(
         back_stride = -width * 0.1
         front_lift = height * 0.24
         back_lift = height * 0.2
+        stance_drop = height * 0.03
     elif pose == "attack":
-        punch = math.sin(clamped_attack_ratio * math.pi)
-        torso_shift_x = facing * width * (0.1 + 0.12 * punch)
-        torso_tilt = -0.08 * facing
-        front_stride = width * 0.15
-        back_stride = -width * 0.1
-        back_lift = height * 0.03
+        anticipation_end = 0.34
+        strike_end = 0.62
+        if clamped_attack_ratio < anticipation_end:
+            phase = clamped_attack_ratio / anticipation_end
+            torso_shift_x = -facing * width * (0.08 + 0.05 * phase)
+            torso_tilt = (0.1 + 0.03 * phase) * facing
+            front_stride = -width * 0.04
+            back_stride = width * 0.16
+            back_lift = height * 0.06
+            stance_drop = height * 0.05
+            attack_extension = 0.04
+        elif clamped_attack_ratio < strike_end:
+            phase = (clamped_attack_ratio - anticipation_end) / (strike_end - anticipation_end)
+            torso_shift_x = facing * width * (0.06 + 0.24 * phase)
+            torso_tilt = (-0.14 + 0.03 * phase) * facing
+            front_stride = width * (0.14 + 0.1 * phase)
+            back_stride = -width * (0.1 + 0.05 * phase)
+            front_lift = height * 0.02
+            back_lift = height * 0.04
+            stance_drop = height * 0.07
+            attack_extension = phase
+        else:
+            phase = (clamped_attack_ratio - strike_end) / (1.0 - strike_end)
+            settle = 1.0 - phase
+            torso_shift_x = facing * width * (0.18 * settle)
+            torso_tilt = (-0.09 * settle) * facing
+            front_stride = width * (0.16 * settle)
+            back_stride = -width * (0.08 * settle)
+            back_lift = height * 0.02 * settle
+            stance_drop = height * 0.04 * settle
+            attack_extension = max(0.0, 0.6 * settle)
     elif pose == "hurt":
         snap = max(0.0, min(1.0, hurt_ratio))
-        torso_shift_x = -facing * width * (0.1 * snap)
-        torso_tilt = -facing * 0.24 * snap
-        front_stride = -facing * width * 0.08
-        back_stride = facing * width * 0.08
-        front_lift = height * 0.06 * snap
-        back_lift = height * 0.1 * snap
+        torso_shift_x = -facing * width * (0.24 * snap)
+        torso_tilt = -facing * 0.34 * snap
+        front_stride = -facing * width * 0.15
+        back_stride = facing * width * 0.16
+        front_lift = height * 0.1 * snap
+        back_lift = height * 0.16 * snap
+        stance_drop = height * 0.06 * snap
 
     torso_center_x = center_x + torso_shift_x
     head_center = (int(center_x + torso_shift_x * 0.18), int(top_y + head_radius + 2 + bob))
 
-    shoulder_y = int(head_center[1] + head_radius + 4)
+    shoulder_y = int(head_center[1] + head_radius + 4 + stance_drop * 0.35)
     left_shoulder = (
         int(torso_center_x - shoulder_span - shoulder_counter * 0.4),
         int(shoulder_y - torso_tilt * width * 0.8),
@@ -105,7 +138,7 @@ def draw_fighter(
         int(shoulder_y + torso_tilt * width * 0.8),
     )
 
-    hip_y = int(shoulder_y + torso_len)
+    hip_y = int(shoulder_y + torso_len + stance_drop * 0.65)
     left_hip = (
         int(torso_center_x - hip_span),
         int(hip_y + torso_tilt * width * 0.5),
@@ -137,15 +170,15 @@ def draw_fighter(
 
     if pose == "attack":
         attack_reach = width * (
-            ATTACK_BASE_REACH + ATTACK_REACH_EXTENSION * math.sin(clamped_attack_ratio * math.pi)
+            ATTACK_BASE_REACH + ATTACK_REACH_EXTENSION * attack_extension
         )
         front_hand = (
             int(front_shoulder[0] + facing * attack_reach),
-            int(front_shoulder[1] + height * 0.05),
+            int(front_shoulder[1] + height * (0.05 - attack_extension * 0.04)),
         )
         rear_hand = (
-            int(rear_shoulder[0] - facing * width * 0.26),
-            int(rear_shoulder[1] + height * 0.2),
+            int(rear_shoulder[0] - facing * width * (0.22 + attack_extension * 0.05)),
+            int(rear_shoulder[1] + height * (0.2 + attack_extension * 0.04)),
         )
     elif pose == "jump":
         front_hand = (
@@ -168,11 +201,11 @@ def draw_fighter(
     else:
         arm_swing = walk_sin * width * 0.2 * (0.2 + move_ratio * 0.8)
         front_hand = (
-            int(front_shoulder[0] - facing * (width * 0.22 + arm_swing)),
-            int(front_shoulder[1] + height * (0.2 + 0.02 * abs(walk_sin))),
+            int(front_shoulder[0] - facing * (width * (0.16 + 0.05 * move_ratio) + arm_swing)),
+            int(front_shoulder[1] + height * (0.18 + 0.03 * abs(walk_sin))),
         )
         rear_hand = (
-            int(rear_shoulder[0] + facing * (width * 0.1 + arm_swing * 0.8)),
+            int(rear_shoulder[0] + facing * (width * (0.08 + 0.05 * move_ratio) + arm_swing * 0.8)),
             int(rear_shoulder[1] + height * 0.24),
         )
 
