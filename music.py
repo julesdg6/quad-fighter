@@ -33,10 +33,11 @@ STEPS_PER_BAR = 16    # 16th-note resolution
 SCALE = [0, 3, 5, 7, 10, 12, 15, 17, 19]
 
 # Mixer channels reserved for the acid machine.
-CH_KICK = 4
+CH_KICK  = 4
 CH_SNARE = 5
 CH_HIHAT = 6
-CH_BASS = 7
+CH_BASS  = 7
+CH_BASS2 = 8   # second 303 voice (square wave)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -102,20 +103,27 @@ def _make_hihat(open_hat: bool = False) -> pygame.Sound:
 
 # ── Acid bass synthesis (TB-303 style) ────────────────────────────────────────
 
-def _make_bass_note(midi: int, accent: bool, step_secs: float) -> pygame.Sound:
+def _make_bass_note(midi: int, accent: bool, step_secs: float,
+                    waveform: str = 'saw') -> pygame.Sound:
     """
     Synthesise a single 303-style bass note.
 
-    Uses a sawtooth oscillator fed through a resonant state-variable filter
-    (SVF) whose cutoff decays exponentially – the classic acid sweep.
+    Uses an oscillator (sawtooth or square) fed through a resonant state-variable
+    filter (SVF) whose cutoff decays exponentially – the classic acid sweep.
+    ``waveform`` may be ``'saw'`` (TB-303 default) or ``'square'`` (brighter buzz,
+    used for the second 303 voice).
     """
     duration = step_secs * (1.65 if accent else 0.80)
     n = int(duration * SR)
     t = np.linspace(0, duration, n, dtype=np.float32)
     freq = _midi_to_hz(midi)
 
-    # Sawtooth oscillator
-    saw = (2.0 * ((freq * t) % 1.0) - 1.0).astype(np.float32)
+    # Oscillator – sawtooth or square
+    phase = (freq * t) % 1.0
+    if waveform == 'square':
+        osc = (2.0 * (phase < 0.5).astype(np.float32) - 1.0)
+    else:
+        osc = (2.0 * phase - 1.0).astype(np.float32)
 
     # Amplitude envelope (snappier on accents)
     att = int(SR * 0.004)
@@ -133,7 +141,7 @@ def _make_bass_note(midi: int, accent: bool, step_secs: float) -> pygame.Sound:
     filtered = np.zeros(n, dtype=np.float32)
     lp_s, bp_s = 0.0, 0.0
     for i in range(n):
-        hp_s = saw[i] - lp_s - r * bp_s
+        hp_s = osc[i] - lp_s - r * bp_s
         bp_s = f_arr[i] * hp_s + bp_s
         lp_s = f_arr[i] * bp_s + lp_s
         filtered[i] = lp_s
@@ -144,7 +152,9 @@ def _make_bass_note(midi: int, accent: bool, step_secs: float) -> pygame.Sound:
     peak = float(np.max(np.abs(sig)))
     if peak > 1e-6:
         sig /= peak
-    return _make_sound(sig * 0.82)
+    # Square wave is a little louder in the mix; pull it back slightly
+    vol = 0.72 if waveform == 'square' else 0.78
+    return _make_sound(sig * vol)
 
 
 # ── Pattern generators ────────────────────────────────────────────────────────
@@ -240,7 +250,7 @@ class AcidMachine:
         if not pygame.mixer.get_init():
             return  # mixer not available – run silently
 
-        pygame.mixer.set_num_channels(max(8, pygame.mixer.get_num_channels()))
+        pygame.mixer.set_num_channels(max(10, pygame.mixer.get_num_channels()))
 
         self._bpm = BPM_BASE
         self._step_secs = 60.0 / (self._bpm * 4)
@@ -257,13 +267,14 @@ class AcidMachine:
         self._hihat   = _make_hihat(open_hat=False)
         self._openhat = _make_hihat(open_hat=True)
 
-        # Bass note cache: (midi, accent) → pygame.Sound
+        # Bass note cache: (midi, accent, waveform) → pygame.Sound
         self._note_cache: dict = {}
         self._cache_lock = threading.Lock()
 
-        # Generate initial patterns
-        self._drum_pattern = _gen_drum_pattern(self._rng, self._bar)
-        self._bass_pattern = _gen_bass_pattern(self._root, self._rng)
+        # Generate initial patterns (two independent bass patterns for dual 303)
+        self._drum_pattern  = _gen_drum_pattern(self._rng, self._bar)
+        self._bass_pattern  = _gen_bass_pattern(self._root, self._rng)
+        self._bass_pattern2 = _gen_bass_pattern(self._root, self._rng)
 
         # Track which roots are already being pre-generated to avoid duplicate threads.
         self._pregenerate_roots: set = set()
@@ -273,7 +284,11 @@ class AcidMachine:
         self._ch_kick   = pygame.mixer.Channel(CH_KICK)
         self._ch_snare  = pygame.mixer.Channel(CH_SNARE)
         self._ch_hihat  = pygame.mixer.Channel(CH_HIHAT)
+        # Two 303 voices: sawtooth (slightly left) and square (slightly right)
         self._ch_bass   = pygame.mixer.Channel(CH_BASS)
+        self._ch_bass2  = pygame.mixer.Channel(CH_BASS2)
+        self._ch_bass.set_volume(1.0, 0.75)
+        self._ch_bass2.set_volume(0.75, 1.0)
 
         self._enabled = True
 
@@ -290,30 +305,31 @@ class AcidMachine:
         step_secs = self._step_secs
 
         def _work():
-            # Range: −1 octave to +2 octaves above root
+            # Range: −1 octave to +2 octaves above root; both waveforms
             for semitone in range(-12, 25):
                 midi = root + semitone
                 if not (24 <= midi <= 72):
                     continue
                 for accent in (False, True):
-                    key = (midi, accent)
-                    with self._cache_lock:
-                        if key in self._note_cache:
-                            continue
-                    sound = _make_bass_note(midi, accent, step_secs)
-                    with self._cache_lock:
-                        self._note_cache[key] = sound
+                    for wf in ('saw', 'square'):
+                        key = (midi, accent, wf)
+                        with self._cache_lock:
+                            if key in self._note_cache:
+                                continue
+                        sound = _make_bass_note(midi, accent, step_secs, wf)
+                        with self._cache_lock:
+                            self._note_cache[key] = sound
 
         threading.Thread(target=_work, daemon=True).start()
 
-    def _get_bass_sound(self, midi: int, accent: bool) -> pygame.Sound:
-        key = (midi, accent)
+    def _get_bass_sound(self, midi: int, accent: bool, waveform: str = 'saw') -> pygame.Sound:
+        key = (midi, accent, waveform)
         with self._cache_lock:
             cached = self._note_cache.get(key)
         if cached is not None:
             return cached
         # Not cached yet – generate inline (rare after warm-up)
-        sound = _make_bass_note(midi, accent, self._step_secs)
+        sound = _make_bass_note(midi, accent, self._step_secs, waveform)
         with self._cache_lock:
             self._note_cache[key] = sound
         return sound
@@ -331,9 +347,10 @@ class AcidMachine:
             self._root = 36 + _ROOT_SHIFTS[self._root_idx]
             self._pregenerate_async(self._root)
 
-        # New bass pattern every 2 bars
-        if self._bar % 2 == 0:
-            self._bass_pattern = _gen_bass_pattern(self._root, self._rng)
+        # New bass patterns every 8 bars (was 2) – let each phrase breathe
+        if self._bar % 8 == 0:
+            self._bass_pattern  = _gen_bass_pattern(self._root, self._rng)
+            self._bass_pattern2 = _gen_bass_pattern(self._root, self._rng)
 
         # Subtle BPM drift every 16 bars (±3 BPM) – keeps it alive
         if self._bar % 16 == 0:
@@ -351,10 +368,17 @@ class AcidMachine:
         if dp["openhat"][step]:
             self._ch_hihat.play(self._openhat)
 
+        # Voice 1 – sawtooth 303
         bp = self._bass_pattern[step]
         if bp is not None:
             midi, accent = bp
-            self._ch_bass.play(self._get_bass_sound(midi, accent))
+            self._ch_bass.play(self._get_bass_sound(midi, accent, 'saw'))
+
+        # Voice 2 – square-wave 303 (complementary pattern, panned right)
+        bp2 = self._bass_pattern2[step]
+        if bp2 is not None:
+            midi2, accent2 = bp2
+            self._ch_bass2.play(self._get_bass_sound(midi2, accent2, 'square'))
 
     def tick(self, dt: float) -> None:
         """Advance the sequencer by *dt* seconds.  Call once per game frame."""
