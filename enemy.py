@@ -8,53 +8,54 @@ SHADOW_BASE_SCALE = 1.0
 SHADOW_MAX_REDUCTION = 0.5
 SHADOW_JUMP_DIVISOR = 120.0
 HURT_ANIMATION_DURATION_FRAMES = 14.0
-SHADOW_OUTER_INFLATE_X = 6
-SHADOW_OUTER_INFLATE_Y = 2
+SHADOW_OUTER_INFLATE_X = 12
+SHADOW_OUTER_INFLATE_Y = 4
 SHADOW_OUTER_COLOR = (30, 30, 30)
 TELEGRAPH_PULSE_BASE = 90
 TELEGRAPH_PULSE_RANGE = 70
 TELEGRAPH_PULSE_FREQUENCY = 8
+CHARACTER_SCALE = 2
 
 
 ENEMY_ATTACK_PROFILE = {
     "anticipation": 5,
     "strike": 4,
     "recovery": 8,
-    "cooldown": 36,
-    "damage": 8,
-    "attack_width": 34,
-    "attack_height": 26,
-    "attack_offset": 4,
-    "attack_knockback": 26,
-    "engage_distance": 52,
+    "cooldown": 28,
+    "damage": 10,
+    "attack_width": 68,
+    "attack_height": 52,
+    "attack_offset": 8,
+    "attack_knockback": 52,
+    "engage_distance": 68,
 }
 
 BRAWLER_ATTACK_PROFILE = {
     "anticipation": 7,
     "strike": 5,
     "recovery": 10,
-    "cooldown": 34,
-    "damage": 11,
-    "attack_width": 44,
-    "attack_height": 30,
-    "attack_offset": 4,
-    "attack_knockback": 34,
-    "engage_distance": 58,
+    "cooldown": 30,
+    "damage": 14,
+    "attack_width": 88,
+    "attack_height": 60,
+    "attack_offset": 8,
+    "attack_knockback": 68,
+    "engage_distance": 80,
 }
 
 BOSS_ATTACK_PROFILE = {
     "anticipation": 10,
     "strike": 6,
     "recovery": 12,
-    "cooldown": 48,
+    "cooldown": 42,
     "damage": 16,
-    "attack_width": 56,
-    "attack_height": 34,
-    "attack_offset": 5,
-    "attack_knockback": 52,
-    "engage_distance": 66,
+    "attack_width": 112,
+    "attack_height": 68,
+    "attack_offset": 10,
+    "attack_knockback": 92,
+    "engage_distance": 96,
 }
-BOSS_MAX_HEALTH = 260
+BOSS_MAX_HEALTH = 280
 
 
 class Enemy:
@@ -64,21 +65,21 @@ class Enemy:
         self.x = float(x)
         self.y = float(y)
         if self.is_boss:
-            self.width = 66
-            self.height = 124
+            self.width = int(66 * CHARACTER_SCALE)
+            self.height = int(124 * CHARACTER_SCALE)
             self.speed = 2.1
             self.health = BOSS_MAX_HEALTH
             profile = BOSS_ATTACK_PROFILE
         else:
             if self.variant == "brawler":
-                self.width = 56
-                self.height = 104
+                self.width = int(56 * CHARACTER_SCALE)
+                self.height = int(104 * CHARACTER_SCALE)
                 self.speed = 2.2
                 self.health = 150
                 profile = BRAWLER_ATTACK_PROFILE
             else:
-                self.width = 48
-                self.height = 96
+                self.width = int(48 * CHARACTER_SCALE)
+                self.height = int(96 * CHARACTER_SCALE)
                 self.speed = 2.8
                 self.health = 120
                 profile = ENEMY_ATTACK_PROFILE
@@ -135,14 +136,16 @@ class Enemy:
             self.attack_timer -= 1
             self.vel_x = 0
         else:
+            player_center_x = player.x + player.width * 0.5
+            enemy_center_x = self.x + self.width * 0.5
             if self.should_attack(player):
                 self.attack_timer = self.attack_duration_frames
                 self.attack_cooldown_timer = self.attack_cooldown_frames
                 self.attack_id += 1
                 self.vel_x = 0
-            elif player.x > self.x + 4:
+            elif player_center_x > enemy_center_x + 4:
                 self.vel_x = self.speed
-            elif player.x < self.x - 4:
+            elif player_center_x < enemy_center_x - 4:
                 self.vel_x = -self.speed
             else:
                 self.vel_x = 0
@@ -179,7 +182,11 @@ class Enemy:
             return False
         if abs(player.ground_y - self.ground_y) > GROUND_Y_ATTACK_THRESHOLD:
             return False
-        return abs(player.x - self.x) <= self.engage_distance
+        hitbox_separation = max(
+            0.0,
+            max(self.x, player.x) - min(self.x + self.width, player.x + player.width),
+        )
+        return hitbox_separation <= self.engage_distance
 
     def is_attacking(self):
         return self.attack_timer > 0
