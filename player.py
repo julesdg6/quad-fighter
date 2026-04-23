@@ -11,6 +11,9 @@ POST_ATTACK_FRAMES = 2
 CHARACTER_SCALE = 2
 PRIMARY_ATTACK_HITBOX_COLOR = (255, 220, 0)
 SECONDARY_ATTACK_HITBOX_COLOR = (255, 150, 64)
+AERIAL_ATTACK_HITBOX_COLOR = (64, 220, 255)
+
+AERIAL_HEAVY_FORWARD_VEL = 5.0
 
 ATTACK_PROFILES = {
     "primary": {
@@ -34,6 +37,28 @@ ATTACK_PROFILES = {
         "attack_height": 56,
         "attack_offset": 8,
         "knockback": 74,
+    },
+    "aerial_light": {
+        "anticipation": 2,
+        "strike": 4,
+        "recovery": 5,
+        "cooldown": 16,
+        "damage": 12,
+        "attack_width": 55,
+        "attack_height": 44,
+        "attack_offset": 6,
+        "knockback": 62,
+    },
+    "aerial_heavy": {
+        "anticipation": 3,
+        "strike": 6,
+        "recovery": 8,
+        "cooldown": 24,
+        "damage": 20,
+        "attack_width": 80,
+        "attack_height": 52,
+        "attack_offset": 8,
+        "knockback": 88,
     },
 }
 
@@ -87,6 +112,7 @@ class Player:
         self.weapon_hits_remaining = 0
         self.weapon_damage_bonus = 0
         self.weapon_range_bonus = 0
+        self.aerial_attack_used = False
 
     def update(self):
         keys = pygame.key.get_pressed()
@@ -118,20 +144,38 @@ class Player:
                 self.on_ground = False
 
             triggered_attack = None
-            if (
-                secondary_pressed
-                and not self.prev_secondary_pressed
-                and self.attack_cooldown_timer <= 0
-                and not self.is_attacking()
-            ):
-                triggered_attack = "secondary"
-            elif (
-                primary_pressed
-                and not self.prev_primary_pressed
-                and self.attack_cooldown_timer <= 0
-                and not self.is_attacking()
-            ):
-                triggered_attack = "primary"
+            if not self.on_ground:
+                if (
+                    secondary_pressed
+                    and not self.prev_secondary_pressed
+                    and self.attack_cooldown_timer <= 0
+                    and not self.is_attacking()
+                    and not self.aerial_attack_used
+                ):
+                    triggered_attack = "aerial_heavy"
+                elif (
+                    primary_pressed
+                    and not self.prev_primary_pressed
+                    and self.attack_cooldown_timer <= 0
+                    and not self.is_attacking()
+                    and not self.aerial_attack_used
+                ):
+                    triggered_attack = "aerial_light"
+            else:
+                if (
+                    secondary_pressed
+                    and not self.prev_secondary_pressed
+                    and self.attack_cooldown_timer <= 0
+                    and not self.is_attacking()
+                ):
+                    triggered_attack = "secondary"
+                elif (
+                    primary_pressed
+                    and not self.prev_primary_pressed
+                    and self.attack_cooldown_timer <= 0
+                    and not self.is_attacking()
+                ):
+                    triggered_attack = "primary"
             if triggered_attack is not None:
                 profile = ATTACK_PROFILES[triggered_attack]
                 self.current_attack_type = triggered_attack
@@ -153,6 +197,20 @@ class Player:
                 self.attack_knockback = profile["knockback"]
                 self.post_attack_timer = 0
                 self.attack_id += 1
+                if triggered_attack in ("aerial_light", "aerial_heavy"):
+                    self.aerial_attack_used = True
+
+            # Flying kick: lock forward velocity during strike for committed lunge
+            if (
+                not self.on_ground
+                and self.current_attack_type == "aerial_heavy"
+                and self.attack_timer > 0
+            ):
+                elapsed = self.attack_duration_frames - self.attack_timer
+                strike_start = self.attack_anticipation_frames
+                strike_end = strike_start + self.attack_strike_frames
+                if strike_start <= elapsed < strike_end:
+                    self.vel_x = self.facing * AERIAL_HEAVY_FORWARD_VEL
         self.prev_primary_pressed = primary_pressed
         self.prev_secondary_pressed = secondary_pressed
 
@@ -183,6 +241,7 @@ class Player:
             self.y = self.ground_y
             self.vel_y = 0.0
             self.on_ground = True
+            self.aerial_attack_used = False
 
     def get_rect(self):
         return pygame.Rect(int(self.x), int(self.y), self.width, self.height)
@@ -200,8 +259,15 @@ class Player:
             return None
         attack_width = self.attack_width + self.weapon_range_bonus
         attack_height = self.attack_height
-        # Secondary (kick) hitbox sits at lower body/leg level
-        y_ratio = 0.55 if self.current_attack_type == "secondary" else 0.30
+        # Choose y_ratio based on attack type (relative to player's current y)
+        if self.current_attack_type == "secondary":
+            y_ratio = 0.55
+        elif self.current_attack_type == "aerial_heavy":
+            y_ratio = 0.35
+        elif self.current_attack_type == "aerial_light":
+            y_ratio = 0.25
+        else:
+            y_ratio = 0.30
         if self.facing > 0:
             attack_x = int(self.x + self.width + self.attack_offset)
         else:
@@ -261,7 +327,12 @@ class Player:
         if self.hurt_anim_timer > 0:
             pose = "hurt"
         elif not self.on_ground:
-            pose = "jump"
+            if self.is_attacking() and self.current_attack_type == "aerial_heavy":
+                pose = "aerial_kick"
+            elif self.is_attacking() and self.current_attack_type == "aerial_light":
+                pose = "aerial_attack"
+            else:
+                pose = "jump"
         elif self.is_attacking():
             pose = "kick" if self.current_attack_type == "secondary" else "attack"
         elif abs(self.vel_x) > 0.05:
@@ -328,9 +399,10 @@ class Player:
         attack_rect = self.get_attack_rect()
         if attack_rect is not None:
             draw_attack_rect = attack_rect.move(-int(camera_x), 0)
-            hitbox_color = (
-                PRIMARY_ATTACK_HITBOX_COLOR
-                if self.current_attack_type == "primary"
-                else SECONDARY_ATTACK_HITBOX_COLOR
-            )
+            if self.current_attack_type in ("aerial_light", "aerial_heavy"):
+                hitbox_color = AERIAL_ATTACK_HITBOX_COLOR
+            elif self.current_attack_type == "secondary":
+                hitbox_color = SECONDARY_ATTACK_HITBOX_COLOR
+            else:
+                hitbox_color = PRIMARY_ATTACK_HITBOX_COLOR
             pygame.draw.rect(screen, hitbox_color, draw_attack_rect, 2)

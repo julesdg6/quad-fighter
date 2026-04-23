@@ -283,7 +283,85 @@ def draw_fighter(
         front_lift = height * 0.1 * snap
         back_lift = height * 0.16 * snap
         stance_drop = height * 0.06 * snap
-    torso_shift_x += base_torso_shift
+    elif pose == "aerial_attack":
+        # Light aerial strike – arm extends forward, legs stay tucked in air
+        anticipation_end = _clamp(
+            attack_anticipation_end,
+            MIN_ATTACK_PHASE_DURATION,
+            MAX_ATTACK_ANTICIPATION_END,
+        )
+        strike_end = _clamp(
+            attack_strike_end,
+            anticipation_end + MIN_ATTACK_PHASE_DURATION,
+            MAX_ATTACK_STRIKE_END,
+        )
+        bob -= JUMP_BOB_OFFSET
+        front_stride = width * 0.10
+        back_stride = -width * 0.08
+        front_lift = height * 0.22
+        back_lift = height * 0.18
+        stance_drop = height * 0.03
+        if clamped_attack_ratio < anticipation_end:
+            phase = clamped_attack_ratio / anticipation_end
+            torso_shift_x = -facing * width * 0.04 * phase
+            torso_tilt = 0.04 * facing * phase
+            attack_extension = 0.02
+        elif clamped_attack_ratio < strike_end:
+            phase = (clamped_attack_ratio - anticipation_end) / (strike_end - anticipation_end)
+            torso_shift_x = facing * width * (0.06 + 0.16 * phase)
+            torso_tilt = (-0.08 + 0.02 * phase) * facing
+            attack_extension = phase
+        else:
+            phase = (clamped_attack_ratio - strike_end) / max(MIN_PHASE_DIVISOR, 1.0 - strike_end)
+            settle = 1.0 - phase
+            torso_shift_x = facing * width * 0.12 * settle
+            torso_tilt = -0.06 * facing * settle
+            attack_extension = 0.4 * settle
+    elif pose == "aerial_kick":
+        # Flying kick – body leans forward, front leg shoots out
+        anticipation_end = _clamp(
+            attack_anticipation_end,
+            MIN_ATTACK_PHASE_DURATION,
+            MAX_ATTACK_ANTICIPATION_END,
+        )
+        strike_end = _clamp(
+            attack_strike_end,
+            anticipation_end + MIN_ATTACK_PHASE_DURATION,
+            MAX_ATTACK_STRIKE_END,
+        )
+        bob -= JUMP_BOB_OFFSET
+        if clamped_attack_ratio < anticipation_end:
+            phase = clamped_attack_ratio / anticipation_end
+            # Chamber: knee draws up and back
+            torso_tilt = (0.08 + 0.06 * phase) * facing
+            torso_shift_x = facing * width * 0.04 * phase
+            front_stride = -width * (0.04 + 0.18 * phase)
+            back_stride = -width * 0.08
+            front_lift = height * (0.20 + 0.18 * phase)
+            back_lift = height * 0.18
+            stance_drop = height * 0.03
+        elif clamped_attack_ratio < strike_end:
+            phase = (clamped_attack_ratio - anticipation_end) / (strike_end - anticipation_end)
+            # Strike: leg shoots forward at body height
+            torso_tilt = (0.12 - 0.08 * phase) * facing
+            torso_shift_x = facing * width * (0.10 + 0.10 * phase)
+            front_stride = width * (0.16 + 0.38 * phase)
+            back_stride = -width * 0.10
+            front_lift = height * (0.36 - 0.10 * phase)
+            back_lift = height * 0.18
+            stance_drop = height * 0.04
+            attack_extension = phase
+        else:
+            phase = (clamped_attack_ratio - strike_end) / max(MIN_PHASE_DIVISOR, 1.0 - strike_end)
+            settle = 1.0 - phase
+            torso_tilt = 0.04 * facing * settle
+            torso_shift_x = facing * width * 0.10 * settle
+            front_stride = width * 0.28 * settle
+            front_lift = height * 0.20 * settle
+            back_stride = -width * 0.10 * settle
+            back_lift = height * 0.16
+            stance_drop = height * 0.03
+            attack_extension = 0.3 * settle
     torso_tilt += base_torso_tilt
 
     torso_center_x = center_x + torso_shift_x
@@ -390,6 +468,28 @@ def draw_fighter(
         rear_hand = (
             int(rear_shoulder[0] - facing * width * 0.04),
             int(rear_shoulder[1] + height * 0.17),
+        )
+    elif pose == "aerial_attack":
+        # Front arm extends forward like a jab; rear arm guards
+        attack_reach = width * (ATTACK_BASE_REACH + ATTACK_REACH_EXTENSION * attack_extension)
+        front_hand = (
+            int(front_shoulder[0] + facing * attack_reach),
+            int(front_shoulder[1] + height * (0.06 - attack_extension * 0.04)),
+        )
+        rear_hand = (
+            int(rear_shoulder[0] - facing * width * 0.16),
+            int(rear_shoulder[1] + height * 0.18),
+        )
+    elif pose == "aerial_kick":
+        # Arms sweep back for aerodynamics during flying kick
+        kick_phase = min(1.0, clamped_attack_ratio / max(MIN_PHASE_DIVISOR, attack_anticipation_end))
+        front_hand = (
+            int(front_shoulder[0] - facing * width * (0.04 + 0.08 * kick_phase)),
+            int(front_shoulder[1] + height * (0.16 + 0.06 * kick_phase)),
+        )
+        rear_hand = (
+            int(rear_shoulder[0] - facing * width * 0.18),
+            int(rear_shoulder[1] + height * 0.14),
         )
     else:
         arm_swing = walk_sin * width * 0.16 * (0.15 + move_ratio * 0.75)
