@@ -24,8 +24,21 @@ IMPACT_FLASH_INFLATE_X = 26
 IMPACT_FLASH_INFLATE_Y = 20
 CAMERA_FOLLOW_RATIO = 0.45
 STAGE_CLEAR_X = WORLD_WIDTH - 360
-AUTO_EXIT_FRAMES = int(os.environ.get("QUAD_FIGHTER_AUTO_EXIT_FRAMES", "0"))
-SCREENSHOT_PATH = os.environ.get("QUAD_FIGHTER_SCREENSHOT_PATH")
+QUAD_FIGHTER_AUTO_EXIT_FRAMES = int(os.environ.get("QUAD_FIGHTER_AUTO_EXIT_FRAMES", "0"))
+QUAD_FIGHTER_SCREENSHOT_PATH = os.environ.get("QUAD_FIGHTER_SCREENSHOT_PATH")
+SPAWN_PLAYER_AHEAD = 60
+SPAWN_PLAYER_SPACING = 36
+SPAWN_TRIGGER_OFFSET = 420
+SPAWN_TRIGGER_SPACING = 28
+SPAWN_WORLD_RIGHT_PADDING = 80
+DEFAULT_ENEMY_GROUND_Y = HEIGHT - 112
+BREAK_EFFECT_FRAMES = 12
+BREAK_EFFECT_BASE_SIZE = 6
+BREAK_EFFECT_SIZE_PER_FRAME = 2
+ENEMY_SPAWN_LANE_OFFSETS = (-28, 0, 30)
+PIPE_WEAPON_HITS = 6
+PIPE_WEAPON_DAMAGE_BONUS = 8
+PIPE_WEAPON_RANGE_BONUS = 20
 
 # Setup
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -65,14 +78,19 @@ break_effects = []
 
 def spawn_enemies(player_x, trigger_x, count):
     spawned = []
-    lane_offsets = (-28, 0, 30)
     for i in range(count):
-        spawn_x = max(player_x + WIDTH + 60 + i * 36, trigger_x + 420 + i * 28)
-        spawn_x = min(WORLD_WIDTH - 80, spawn_x)
-        enemy = Enemy(spawn_x, HEIGHT - 112, WORLD_WIDTH, HEIGHT)
+        spawn_x = max(
+            player_x + WIDTH + SPAWN_PLAYER_AHEAD + i * SPAWN_PLAYER_SPACING,
+            trigger_x + SPAWN_TRIGGER_OFFSET + i * SPAWN_TRIGGER_SPACING,
+        )
+        spawn_x = min(WORLD_WIDTH - SPAWN_WORLD_RIGHT_PADDING, spawn_x)
+        enemy = Enemy(spawn_x, DEFAULT_ENEMY_GROUND_Y, WORLD_WIDTH, HEIGHT)
         enemy.ground_y = max(
             LANE_TOP,
-            min(LANE_BOTTOM - enemy.height + 20, (HEIGHT - 112) + lane_offsets[i % len(lane_offsets)]),
+            min(
+                LANE_BOTTOM - enemy.height + 20,
+                DEFAULT_ENEMY_GROUND_Y + ENEMY_SPAWN_LANE_OFFSETS[i % len(ENEMY_SPAWN_LANE_OFFSETS)],
+            ),
         )
         enemy.y = enemy.ground_y
         spawned.append(enemy)
@@ -81,6 +99,7 @@ def spawn_enemies(player_x, trigger_x, count):
 # Main loop
 running = True
 frame_count = 0
+screenshot_saved = False
 while running:
     clock.tick(FPS)
     screen.fill((32, 32, 32))  # Greybox background
@@ -130,7 +149,12 @@ while running:
                     picked_weapon = obj
                     break
             if picked_weapon is not None:
-                player.equip_weapon("pipe", hits=6, damage_bonus=8, range_bonus=20)
+                player.equip_weapon(
+                    "pipe",
+                    hits=PIPE_WEAPON_HITS,
+                    damage_bonus=PIPE_WEAPON_DAMAGE_BONUS,
+                    range_bonus=PIPE_WEAPON_RANGE_BONUS,
+                )
                 environment_objects.remove(picked_weapon)
 
         weapon_hit_registered = False
@@ -161,7 +185,7 @@ while running:
                 if obj.is_destroyed():
                     break_center_x = obj.x + obj.width / 2
                     break_center_y = obj.y + obj.height / 2
-                    break_effects.append({"x": break_center_x, "y": break_center_y, "timer": 12})
+                    break_effects.append({"x": break_center_x, "y": break_center_y, "timer": BREAK_EFFECT_FRAMES})
                     if obj.kind == "barrel":
                         environment_objects.append(
                             EnvironmentObject("pipe", obj.x + 6, HEIGHT - 72, 28, 10)
@@ -213,8 +237,8 @@ while running:
     pygame.draw.line(screen, (72, 72, 72), (0, LANE_TOP), (WIDTH, LANE_TOP), 2)
     pygame.draw.line(screen, (86, 86, 86), (0, LANE_BOTTOM), (WIDTH, LANE_BOTTOM), 2)
     center_lane_y = LANE_TOP + int(lane_height * LANE_GUIDE_RATIO)
-    dash_offset = (-camera_x) % LANE_DASH_SPACING
-    for x in range(-LANE_DASH_SPACING + dash_offset, WIDTH + LANE_DASH_SPACING, LANE_DASH_SPACING):
+    camera_dash_offset = (-camera_x) % LANE_DASH_SPACING
+    for x in range(-LANE_DASH_SPACING + camera_dash_offset, WIDTH + LANE_DASH_SPACING, LANE_DASH_SPACING):
         pygame.draw.line(
             screen,
             (78, 78, 78),
@@ -245,11 +269,25 @@ while running:
         pygame.draw.rect(screen, pulse_color, flash_rect, 2)
 
     for effect in break_effects:
-        size = 6 + (12 - effect["timer"]) * 2
+        break_effect_size = (
+            BREAK_EFFECT_BASE_SIZE + (BREAK_EFFECT_FRAMES - effect["timer"]) * BREAK_EFFECT_SIZE_PER_FRAME
+        )
         fx = int(effect["x"] - camera_x)
         fy = int(effect["y"])
-        pygame.draw.line(screen, (210, 210, 210), (fx - size, fy - size), (fx + size, fy + size), 2)
-        pygame.draw.line(screen, (210, 210, 210), (fx - size, fy + size), (fx + size, fy - size), 2)
+        pygame.draw.line(
+            screen,
+            (210, 210, 210),
+            (fx - break_effect_size, fy - break_effect_size),
+            (fx + break_effect_size, fy + break_effect_size),
+            2,
+        )
+        pygame.draw.line(
+            screen,
+            (210, 210, 210),
+            (fx - break_effect_size, fy + break_effect_size),
+            (fx + break_effect_size, fy - break_effect_size),
+            2,
+        )
 
     if enemies:
         enemy_status = f"Enemies Alive: {len(enemies)}"
@@ -266,14 +304,23 @@ while running:
     hud_text = f"Player HP: {player.health}   {enemy_status}   Stage: {progress_pct}%   {weapon_text}"
     screen.blit(font.render(hud_text, True, (220, 220, 220)), (16, 16))
     if stage_complete:
-        clear_text = font.render("AREA CLEAR - MOVE COMPLETE", True, (240, 240, 240))
+        clear_text = font.render("AREA CLEAR - STAGE COMPLETE", True, (240, 240, 240))
         screen.blit(clear_text, (WIDTH // 2 - clear_text.get_width() // 2, 70))
 
     pygame.display.flip()
     frame_count += 1
-    if SCREENSHOT_PATH is not None and frame_count == max(1, AUTO_EXIT_FRAMES):
-        pygame.image.save(screen, SCREENSHOT_PATH)
-    if AUTO_EXIT_FRAMES > 0 and frame_count >= AUTO_EXIT_FRAMES:
+    if (
+        QUAD_FIGHTER_SCREENSHOT_PATH is not None
+        and QUAD_FIGHTER_AUTO_EXIT_FRAMES > 0
+        and frame_count >= QUAD_FIGHTER_AUTO_EXIT_FRAMES
+        and not screenshot_saved
+    ):
+        screenshot_dir = os.path.dirname(QUAD_FIGHTER_SCREENSHOT_PATH)
+        if screenshot_dir:
+            os.makedirs(screenshot_dir, exist_ok=True)
+        pygame.image.save(screen, QUAD_FIGHTER_SCREENSHOT_PATH)
+        screenshot_saved = True
+    if QUAD_FIGHTER_AUTO_EXIT_FRAMES > 0 and frame_count >= QUAD_FIGHTER_AUTO_EXIT_FRAMES:
         running = False
 
 pygame.quit()
