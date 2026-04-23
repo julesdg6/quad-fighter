@@ -11,6 +11,9 @@ HURT_ANIMATION_DURATION_FRAMES = 14.0
 SHADOW_OUTER_INFLATE_X = 6
 SHADOW_OUTER_INFLATE_Y = 2
 SHADOW_OUTER_COLOR = (30, 30, 30)
+TELEGRAPH_PULSE_BASE = 90
+TELEGRAPH_PULSE_RANGE = 70
+TELEGRAPH_PULSE_FREQUENCY = 8
 
 
 ENEMY_ATTACK_PROFILE = {
@@ -347,7 +350,9 @@ class Enemy:
 
         if self.is_attack_windup():
             windup_ratio = 1.0 - (self.attack_timer / self.attack_duration_frames)
-            pulse = 90 + int(70 * abs((windup_ratio * 8) % 2 - 1))
+            pulse = TELEGRAPH_PULSE_BASE + int(
+                TELEGRAPH_PULSE_RANGE * abs((windup_ratio * TELEGRAPH_PULSE_FREQUENCY) % 2 - 1)
+            )
             intent_width = self.attack_width + 10
             if self.facing > 0:
                 intent_x = int(draw_x + self.width + self.attack_offset - 3)

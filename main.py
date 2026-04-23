@@ -27,7 +27,10 @@ STAGE_CLEAR_X = WORLD_WIDTH - 360
 BOSS_TRIGGER_X = WORLD_WIDTH - 520
 BOSS_SPAWN_X = WORLD_WIDTH - 220
 BOSS_INTRO_FRAMES = 90
+BOSS_CAMERA_CENTER_WEIGHT = 0.5
+BOSS_CAMERA_FORWARD_OFFSET_RATIO = 0.2
 FOOD_HEAL_AMOUNT = 28
+MID_SECTION_START_X = 780
 QUAD_FIGHTER_AUTO_EXIT_FRAMES = int(os.environ.get("QUAD_FIGHTER_AUTO_EXIT_FRAMES", "0"))
 QUAD_FIGHTER_SCREENSHOT_PATH = os.environ.get("QUAD_FIGHTER_SCREENSHOT_PATH")
 SPAWN_PLAYER_AHEAD = 60
@@ -278,7 +281,10 @@ while running:
 
     boss_enemy = next((enemy for enemy in enemies if enemy.is_boss), None)
     if boss_enemy is not None:
-        focus_x = (player.x + boss_enemy.x) * 0.5 + boss_enemy.width * 0.2
+        focus_x = (
+            (player.x + boss_enemy.x) * BOSS_CAMERA_CENTER_WEIGHT
+            + boss_enemy.width * BOSS_CAMERA_FORWARD_OFFSET_RATIO
+        )
         camera_target = focus_x - WIDTH * 0.5
     else:
         camera_target = player.x + player.width / 2 - WIDTH * CAMERA_FOLLOW_RATIO
@@ -297,7 +303,7 @@ while running:
         section_message_timer -= 1
 
     if not boss_spawned:
-        if player.x < 780:
+        if player.x < MID_SECTION_START_X:
             next_section = "opening"
             next_message = "OPENING - PUSH FORWARD"
         else:
