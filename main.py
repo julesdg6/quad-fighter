@@ -174,6 +174,10 @@ while running:
         if (
             not boss_spawned
             and spawn_cursor >= len(enemy_spawn_zones)
+            and (
+                not any(enemy.health > 0 and not enemy.is_boss for enemy in enemies)
+                or player.x >= STAGE_CLEAR_X - 120
+            )
             and player.x >= BOSS_TRIGGER_X
         ):
             boss = Enemy(BOSS_SPAWN_X, DEFAULT_ENEMY_GROUND_Y, WORLD_WIDTH, HEIGHT, is_boss=True)
@@ -473,12 +477,13 @@ while running:
         section_text = font.render(section_message, True, (235, 235, 235))
         screen.blit(section_text, (WIDTH // 2 - section_text.get_width() // 2, 68))
     if stage_complete or level_transition_timer > 0:
-        pulse = 220 + int(35 * abs(math.sin(frame_count * 0.25)))
+        pulse = 220 + int(35 * abs(math.sin((frame_count % 240) * 0.25)))
         clear_text = font.render("LEVEL COMPLETE", True, (pulse, pulse, pulse))
         screen.blit(clear_text, (WIDTH // 2 - clear_text.get_width() // 2, 98))
         if level_transition_timer > 0:
+            seconds_remaining = max(1, (level_transition_timer + FPS - 1) // FPS)
             next_level_text = font.render(
-                f"NEXT LEVEL IN {max(1, (level_transition_timer + FPS - 1) // FPS)}",
+                f"NEXT LEVEL IN {seconds_remaining}",
                 True,
                 (210, 210, 210),
             )

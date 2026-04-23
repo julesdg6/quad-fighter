@@ -136,14 +136,16 @@ class Enemy:
             self.attack_timer -= 1
             self.vel_x = 0
         else:
+            player_center_x = player.x + player.width * 0.5
+            enemy_center_x = self.x + self.width * 0.5
             if self.should_attack(player):
                 self.attack_timer = self.attack_duration_frames
                 self.attack_cooldown_timer = self.attack_cooldown_frames
                 self.attack_id += 1
                 self.vel_x = 0
-            elif player.x + player.width * 0.5 > self.x + self.width * 0.5 + 4:
+            elif player_center_x > enemy_center_x + 4:
                 self.vel_x = self.speed
-            elif player.x + player.width * 0.5 < self.x + self.width * 0.5 - 4:
+            elif player_center_x < enemy_center_x - 4:
                 self.vel_x = -self.speed
             else:
                 self.vel_x = 0
