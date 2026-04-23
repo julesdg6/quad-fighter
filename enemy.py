@@ -105,7 +105,7 @@ class Enemy:
         pygame.draw.ellipse(screen, SHADOW_OUTER_COLOR, outer_shadow)
         pygame.draw.ellipse(screen, (38, 38, 38), shadow_rect)
 
-        body_color = (220, 220, 220) if self.hurt_flash_timer > 0 else (100, 100, 100)
+        hurt_flash = self.hurt_flash_timer > 0
         body_rect = self.get_rect()
         if self.hurt_anim_timer > 0:
             pose = "hurt"
@@ -121,12 +121,29 @@ class Enemy:
             body_rect=body_rect,
             facing=self.facing,
             palette={
-                "torso": body_color,
-                "head": body_color,
-                "face": (40, 40, 40),
-                "front_arm": (70, 70, 70),
-                "rear_arm": (60, 60, 60),
-                "leg": (65, 65, 65),
+                "chest": (88, 44, 38) if not hurt_flash else (180, 126, 120),
+                "torso": (52, 52, 56) if not hurt_flash else (186, 186, 192),
+                "pelvis": (44, 56, 88) if not hurt_flash else (146, 162, 200),
+                "head": (170, 138, 112) if not hurt_flash else (224, 208, 188),
+                "face": (126, 100, 82),
+                "hair": (24, 24, 24),
+                "front_arm_upper": (58, 58, 62) if not hurt_flash else (196, 196, 202),
+                "front_arm_lower": (102, 70, 62) if not hurt_flash else (196, 170, 162),
+                "rear_arm_upper": (44, 44, 48) if not hurt_flash else (182, 182, 188),
+                "rear_arm_lower": (90, 62, 56) if not hurt_flash else (184, 160, 152),
+                "front_leg_upper": (50, 66, 104) if not hurt_flash else (158, 176, 214),
+                "front_leg_lower": (38, 50, 84) if not hurt_flash else (148, 166, 202),
+                "rear_leg_upper": (36, 48, 76) if not hurt_flash else (140, 158, 192),
+                "rear_leg_lower": (30, 38, 62) if not hurt_flash else (130, 148, 184),
+                "hands": (168, 134, 108),
+                "feet": (44, 44, 48),
+                "head_scale": 0.9,
+                "shoulder_ratio": 0.29,
+                "hip_ratio": 0.19,
+                "arm_width": 0.21,
+                "leg_width": 0.2,
+                "idle_tilt": -0.06,
+                "idle_shift": 0.03,
             },
             pose=pose,
             move_ratio=move_ratio,
