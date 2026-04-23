@@ -1,4 +1,5 @@
 import pygame
+from render import draw_fighter
 
 SHADOW_BASE_SCALE = 0.9
 SHADOW_MAX_REDUCTION = 0.5
@@ -116,55 +117,36 @@ class Player:
         pygame.draw.ellipse(screen, (45, 45, 45), shadow_rect)
 
         body_rect = self.get_rect()
-        center_x = body_rect.centerx
-        top_y = body_rect.top
-        bottom_y = body_rect.bottom
-        width = body_rect.width
-        height = body_rect.height
+        if not self.on_ground:
+            pose = "jump"
+        elif self.attack_timer > 0:
+            pose = "attack"
+        elif abs(self.vel_x) > 0.05:
+            pose = "walk"
+        else:
+            pose = "idle"
 
-        head_radius = max(6, int(width * 0.2))
-        head_center = (center_x, top_y + head_radius + 2)
-        shoulder_y = head_center[1] + head_radius + 4
-        hip_y = top_y + int(height * 0.58)
-        left_shoulder_x = center_x - int(width * 0.2)
-        right_shoulder_x = center_x + int(width * 0.2)
-
-        torso_points = [
-            (left_shoulder_x, shoulder_y),
-            (right_shoulder_x, shoulder_y),
-            (center_x + int(width * 0.3), hip_y),
-            (center_x - int(width * 0.3), hip_y),
-        ]
-        pygame.draw.polygon(screen, (172, 172, 172), torso_points)
-        pygame.draw.circle(screen, (205, 205, 205), head_center, head_radius)
-
-        face_tip_x = head_center[0] + self.facing * (head_radius + 2)
-        face_mid_y = head_center[1]
-        pygame.draw.polygon(
+        move_ratio = min(1.0, abs(self.vel_x) / self.speed) if self.speed else 0.0
+        if self.attack_duration_frames <= 0:
+            attack_ratio = 0.0
+        else:
+            attack_ratio = max(0.0, min(1.0, 1.0 - (self.attack_timer / self.attack_duration_frames)))
+        draw_fighter(
             screen,
-            (145, 145, 145),
-            [
-                (face_tip_x, face_mid_y),
-                (head_center[0] + self.facing * (head_radius - 2), face_mid_y - 3),
-                (head_center[0] + self.facing * (head_radius - 2), face_mid_y + 3),
-            ],
+            body_rect=body_rect,
+            facing=self.facing,
+            palette={
+                "torso": (172, 172, 172),
+                "head": (205, 205, 205),
+                "face": (145, 145, 145),
+                "front_arm": (160, 160, 160),
+                "rear_arm": (152, 152, 152),
+                "leg": (152, 152, 152),
+            },
+            pose=pose,
+            move_ratio=move_ratio,
+            attack_ratio=attack_ratio,
         )
-
-        arm_reach_x = center_x + self.facing * int(width * 0.6)
-        arm_reach_y = shoulder_y + int(height * 0.07)
-        rear_arm_x = center_x - self.facing * int(width * 0.5)
-        rear_arm_y = shoulder_y + int(height * 0.11)
-        forward_shoulder_x = right_shoulder_x if self.facing > 0 else left_shoulder_x
-        rear_shoulder_x = left_shoulder_x if self.facing > 0 else right_shoulder_x
-        pygame.draw.line(screen, (160, 160, 160), (forward_shoulder_x, shoulder_y), (arm_reach_x, arm_reach_y), 3)
-        pygame.draw.line(screen, (152, 152, 152), (rear_shoulder_x, shoulder_y), (rear_arm_x, rear_arm_y), 3)
-
-        left_hip = (center_x - int(width * 0.16), hip_y)
-        right_hip = (center_x + int(width * 0.16), hip_y)
-        left_foot = (center_x - int(width * 0.3), bottom_y)
-        right_foot = (center_x + int(width * 0.3), bottom_y)
-        pygame.draw.line(screen, (152, 152, 152), left_hip, left_foot, 4)
-        pygame.draw.line(screen, (152, 152, 152), right_hip, right_foot, 4)
 
         pygame.draw.line(
             screen,
