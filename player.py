@@ -1,9 +1,17 @@
 import pygame
-from render import draw_fighter
+from render import draw_fighter, get_depth_scale
 
-SHADOW_BASE_SCALE = 0.9
+SHADOW_BASE_SCALE = 1.0
 SHADOW_MAX_REDUCTION = 0.5
 SHADOW_JUMP_DIVISOR = 120.0
+SHADOW_OUTER_INFLATE_X = 6
+SHADOW_OUTER_INFLATE_Y = 2
+SHADOW_OUTER_COLOR = (30, 30, 30)
+ATTACK_ANTICIPATION_FRAMES = 3
+ATTACK_STRIKE_FRAMES = 3
+ATTACK_RECOVERY_FRAMES = 5
+POST_ATTACK_FRAMES = 2
+ATTACK_COOLDOWN_FRAMES = 20
 
 
 class Player:
@@ -25,8 +33,17 @@ class Player:
         self.attack = False
         self.attack_timer = 0
         self.attack_cooldown_timer = 0
-        self.attack_cooldown_frames = 18
-        self.attack_duration_frames = 8
+        self.attack_anticipation_frames = ATTACK_ANTICIPATION_FRAMES
+        self.attack_strike_frames = ATTACK_STRIKE_FRAMES
+        self.attack_recovery_frames = ATTACK_RECOVERY_FRAMES
+        self.attack_duration_frames = (
+            self.attack_anticipation_frames
+            + self.attack_strike_frames
+            + self.attack_recovery_frames
+        )
+        self.post_attack_frames = POST_ATTACK_FRAMES
+        self.post_attack_timer = 0
+        self.attack_cooldown_frames = ATTACK_COOLDOWN_FRAMES
         self.prev_attack_pressed = False
         self.attack_id = 0
         self.facing = 1
@@ -56,12 +73,19 @@ class Player:
         if attack_pressed and not self.prev_attack_pressed and self.attack_cooldown_timer <= 0:
             self.attack_timer = self.attack_duration_frames
             self.attack_cooldown_timer = self.attack_cooldown_frames
+            self.post_attack_timer = 0
             self.attack_id += 1
         self.prev_attack_pressed = attack_pressed
 
+        prev_attack_timer = self.attack_timer
         if self.attack_timer > 0:
             self.attack_timer -= 1
-        self.attack = self.attack_timer > 0
+        elif self.post_attack_timer > 0:
+            self.post_attack_timer -= 1
+        if prev_attack_timer > 0 and self.attack_timer == 0:
+            self.post_attack_timer = self.post_attack_frames
+
+        self.attack = self.get_attack_rect() is not None
 
         if self.attack_cooldown_timer > 0:
             self.attack_cooldown_timer -= 1
@@ -84,8 +108,16 @@ class Player:
     def get_rect(self):
         return pygame.Rect(int(self.x), int(self.y), self.width, self.height)
 
+    def is_attacking(self):
+        return self.attack_timer > 0 or self.post_attack_timer > 0
+
     def get_attack_rect(self):
         if self.attack_timer <= 0:
+            return None
+        elapsed = self.attack_duration_frames - self.attack_timer
+        strike_start = self.attack_anticipation_frames
+        strike_end = strike_start + self.attack_strike_frames
+        if elapsed < strike_start or elapsed >= strike_end:
             return None
         attack_width = 24
         attack_height = 18
@@ -105,21 +137,26 @@ class Player:
             SHADOW_MAX_REDUCTION,
             max(0.0, (self.ground_y - self.y) / SHADOW_JUMP_DIVISOR),
         )
-        shadow_width = int(self.width * shadow_scale)
+        lane_min = self.screen_height * 0.5
+        lane_max = self.screen_height - self.height - 20
+        depth_scale = get_depth_scale(self.ground_y, lane_min, lane_max)
+        shadow_width = int(self.width * shadow_scale * depth_scale)
         shadow_width = max(10, shadow_width)
-        shadow_height = max(4, int(shadow_width * 0.35))
+        shadow_height = max(4, int(shadow_width * 0.42))
         shadow_rect = pygame.Rect(
             int(self.x + self.width / 2 - shadow_width / 2),
             int(self.ground_y + self.height + 3 - shadow_height / 2),
             shadow_width,
             shadow_height,
         )
+        outer_shadow = shadow_rect.inflate(SHADOW_OUTER_INFLATE_X, SHADOW_OUTER_INFLATE_Y)
+        pygame.draw.ellipse(screen, SHADOW_OUTER_COLOR, outer_shadow)
         pygame.draw.ellipse(screen, (45, 45, 45), shadow_rect)
 
         body_rect = self.get_rect()
         if not self.on_ground:
             pose = "jump"
-        elif self.attack_timer > 0:
+        elif self.is_attacking():
             pose = "attack"
         elif abs(self.vel_x) > 0.05:
             pose = "walk"
@@ -130,7 +167,14 @@ class Player:
         if self.attack_duration_frames <= 0:
             attack_ratio = 0.0
         else:
-            attack_ratio = max(0.0, min(1.0, 1.0 - (self.attack_timer / self.attack_duration_frames)))
+            attack_ratio = max(
+                0.0,
+                min(1.0, 1.0 - (self.attack_timer / self.attack_duration_frames)),
+            )
+        attack_anticipation_end = self.attack_anticipation_frames / self.attack_duration_frames
+        attack_strike_end = (
+            self.attack_anticipation_frames + self.attack_strike_frames
+        ) / self.attack_duration_frames
         draw_fighter(
             screen,
             body_rect=body_rect,
@@ -146,6 +190,8 @@ class Player:
             pose=pose,
             move_ratio=move_ratio,
             attack_ratio=attack_ratio,
+            attack_anticipation_end=attack_anticipation_end,
+            attack_strike_end=attack_strike_end,
         )
 
         pygame.draw.line(

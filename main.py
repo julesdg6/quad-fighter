@@ -11,6 +11,14 @@ WIDTH, HEIGHT = 800, 600
 FPS = 60
 LANE_TOP = int(HEIGHT * 0.5)
 LANE_BOTTOM = HEIGHT - 92
+HIT_PAUSE_FRAMES = 3
+IMPACT_FLASH_FRAMES = 5
+LANE_BAND_COUNT = 5
+LANE_GUIDE_RATIO = 0.56
+LANE_DASH_SPACING = 52
+LANE_DASH_LENGTH = 28
+IMPACT_FLASH_INFLATE_X = 26
+IMPACT_FLASH_INFLATE_Y = 20
 
 # Setup
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -24,6 +32,8 @@ enemy_index = 1
 enemy = Enemy(520, HEIGHT - 112, WIDTH, HEIGHT)
 enemies_beaten = 0
 clear_shown = False
+hit_pause_timer = 0
+impact_timer = 0
 
 # Main loop
 running = True
@@ -36,15 +46,23 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-    # Update
-    player.update()
-    if enemy is not None and enemy.health > 0:
-        enemy.update(player)
+    # Update / hit-stop
+    if hit_pause_timer > 0:
+        hit_pause_timer -= 1
+    else:
+        player.update()
+        if enemy is not None and enemy.health > 0:
+            enemy.update(player)
 
-    # Combat
-    if enemy is not None and check_attack_collision(player, enemy) and enemy.health > 0:
-        enemy.health = max(0, enemy.health - 10)
-        apply_knockback(enemy, player)
+        # Combat
+        if enemy is not None and check_attack_collision(player, enemy) and enemy.health > 0:
+            enemy.health = max(0, enemy.health - 10)
+            apply_knockback(enemy, player)
+            hit_pause_timer = HIT_PAUSE_FRAMES
+            impact_timer = IMPACT_FLASH_FRAMES
+
+    if impact_timer > 0:
+        impact_timer -= 1
 
     if enemy is not None and enemy.health <= 0 and not enemy.defeat_handled:
         enemy.defeat_handled = True
@@ -57,12 +75,33 @@ while running:
             clear_shown = True
 
     # Draw
-    pygame.draw.rect(screen, (40, 40, 40), (0, LANE_TOP, WIDTH, LANE_BOTTOM - LANE_TOP))
-    pygame.draw.line(screen, (68, 68, 68), (0, LANE_TOP), (WIDTH, LANE_TOP), 2)
-    pygame.draw.line(screen, (78, 78, 78), (0, LANE_BOTTOM), (WIDTH, LANE_BOTTOM), 2)
+    lane_height = LANE_BOTTOM - LANE_TOP
+    for i in range(LANE_BAND_COUNT):
+        band_top = LANE_TOP + int(i * lane_height / LANE_BAND_COUNT)
+        band_bottom = LANE_TOP + int((i + 1) * lane_height / LANE_BAND_COUNT)
+        shade = 38 + i * 4
+        pygame.draw.rect(screen, (shade, shade, shade), (0, band_top, WIDTH, band_bottom - band_top))
+        if i > 0:
+            guide = 55 + i * 4
+            pygame.draw.line(screen, (guide, guide, guide), (0, band_top), (WIDTH, band_top), 1)
+    pygame.draw.line(screen, (72, 72, 72), (0, LANE_TOP), (WIDTH, LANE_TOP), 2)
+    pygame.draw.line(screen, (86, 86, 86), (0, LANE_BOTTOM), (WIDTH, LANE_BOTTOM), 2)
+    center_lane_y = LANE_TOP + int(lane_height * LANE_GUIDE_RATIO)
+    for x in range(0, WIDTH, LANE_DASH_SPACING):
+        pygame.draw.line(
+            screen,
+            (78, 78, 78),
+            (x, center_lane_y),
+            (x + LANE_DASH_LENGTH, center_lane_y),
+            1,
+        )
     player.draw(screen)
     if enemy is not None and enemy.health > 0:
         enemy.draw(screen)
+        if impact_timer > 0:
+            impact_rect = enemy.get_rect().inflate(IMPACT_FLASH_INFLATE_X, IMPACT_FLASH_INFLATE_Y)
+            pulse_color = (230, 230, 230) if impact_timer % 2 == 0 else (200, 200, 200)
+            pygame.draw.rect(screen, pulse_color, impact_rect, 2)
 
     if enemy is not None:
         enemy_status = f"Enemy {enemy_index} HP: {enemy.health}"
