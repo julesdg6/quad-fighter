@@ -8,7 +8,16 @@ IDLE_BOB_FREQUENCY = 2.2
 IDLE_BOB_AMPLITUDE = 1.4
 ATTACK_BASE_REACH = 0.28
 ATTACK_REACH_EXTENSION = 0.9
+ATTACK_ANTICIPATION_END = 0.34
+ATTACK_STRIKE_END = 0.62
+MIN_ATTACK_PHASE_DURATION = 0.05
+MAX_ATTACK_ANTICIPATION_END = 0.9
+MAX_ATTACK_STRIKE_END = 0.95
 JUMP_BOB_OFFSET = 4.0
+SHOULDER_SPAN_RATIO = 0.24
+HIP_SPAN_RATIO = 0.2
+SHADOW_DEPTH_BASE_SCALE = 0.82
+SHADOW_DEPTH_SCALE_RANGE = 0.35
 
 
 def _joint_midpoint(a, b, lift, bend):
@@ -23,6 +32,18 @@ def _draw_limb(screen, color, start, mid, end, width):
     pygame.draw.line(screen, color, mid, end, width)
 
 
+def get_depth_scale(ground_y, lane_min, lane_max):
+    if lane_max <= lane_min:
+        return SHADOW_DEPTH_BASE_SCALE
+    lane_ratio = (ground_y - lane_min) / (lane_max - lane_min)
+    lane_ratio = max(0.0, min(1.0, lane_ratio))
+    return SHADOW_DEPTH_BASE_SCALE + lane_ratio * SHADOW_DEPTH_SCALE_RANGE
+
+
+def _clamp(value, min_value, max_value):
+    return max(min_value, min(max_value, value))
+
+
 def draw_fighter(
     screen,
     body_rect,
@@ -33,6 +54,8 @@ def draw_fighter(
     attack_ratio=0.0,
     hurt_ratio=0.0,
     phase_offset=0.0,
+    attack_anticipation_end=ATTACK_ANTICIPATION_END,
+    attack_strike_end=ATTACK_STRIKE_END,
 ):
     facing = 1 if facing >= 0 else -1
     clamped_attack_ratio = max(0.0, min(1.0, attack_ratio))
@@ -47,8 +70,8 @@ def draw_fighter(
     bottom_y = body_rect.bottom
 
     head_radius = max(6, int(width * 0.2))
-    shoulder_span = int(width * 0.24)
-    hip_span = int(width * 0.2)
+    shoulder_span = int(width * SHOULDER_SPAN_RATIO)
+    hip_span = int(width * HIP_SPAN_RATIO)
     torso_len = int(height * 0.3)
 
     bob = math.sin(t * IDLE_BOB_FREQUENCY) * IDLE_BOB_AMPLITUDE
@@ -84,8 +107,16 @@ def draw_fighter(
         back_lift = height * 0.2
         stance_drop = height * 0.03
     elif pose == "attack":
-        anticipation_end = 0.34
-        strike_end = 0.62
+        anticipation_end = _clamp(
+            attack_anticipation_end,
+            MIN_ATTACK_PHASE_DURATION,
+            MAX_ATTACK_ANTICIPATION_END,
+        )
+        strike_end = _clamp(
+            attack_strike_end,
+            anticipation_end + MIN_ATTACK_PHASE_DURATION,
+            MAX_ATTACK_STRIKE_END,
+        )
         if clamped_attack_ratio < anticipation_end:
             phase = clamped_attack_ratio / anticipation_end
             torso_shift_x = -facing * width * (0.08 + 0.05 * phase)

@@ -1,9 +1,17 @@
 import pygame
-from render import draw_fighter
+from render import draw_fighter, get_depth_scale
 
 SHADOW_BASE_SCALE = 1.0
 SHADOW_MAX_REDUCTION = 0.5
 SHADOW_JUMP_DIVISOR = 120.0
+SHADOW_OUTER_INFLATE_X = 6
+SHADOW_OUTER_INFLATE_Y = 2
+SHADOW_OUTER_COLOR = (30, 30, 30)
+ATTACK_ANTICIPATION_FRAMES = 3
+ATTACK_STRIKE_FRAMES = 3
+ATTACK_RECOVERY_FRAMES = 5
+POST_ATTACK_FRAMES = 2
+ATTACK_COOLDOWN_FRAMES = 20
 
 
 class Player:
@@ -25,17 +33,17 @@ class Player:
         self.attack = False
         self.attack_timer = 0
         self.attack_cooldown_timer = 0
-        self.attack_anticipation_frames = 3
-        self.attack_strike_frames = 3
-        self.attack_recovery_frames = 5
+        self.attack_anticipation_frames = ATTACK_ANTICIPATION_FRAMES
+        self.attack_strike_frames = ATTACK_STRIKE_FRAMES
+        self.attack_recovery_frames = ATTACK_RECOVERY_FRAMES
         self.attack_duration_frames = (
             self.attack_anticipation_frames
             + self.attack_strike_frames
             + self.attack_recovery_frames
         )
-        self.post_attack_frames = 2
+        self.post_attack_frames = POST_ATTACK_FRAMES
         self.post_attack_timer = 0
-        self.attack_cooldown_frames = 20
+        self.attack_cooldown_frames = ATTACK_COOLDOWN_FRAMES
         self.prev_attack_pressed = False
         self.attack_id = 0
         self.facing = 1
@@ -100,6 +108,9 @@ class Player:
     def get_rect(self):
         return pygame.Rect(int(self.x), int(self.y), self.width, self.height)
 
+    def is_attacking(self):
+        return self.attack_timer > 0 or self.post_attack_timer > 0
+
     def get_attack_rect(self):
         if self.attack_timer <= 0:
             return None
@@ -128,10 +139,7 @@ class Player:
         )
         lane_min = self.screen_height * 0.5
         lane_max = self.screen_height - self.height - 20
-        lane_ratio = 0.0
-        if lane_max > lane_min:
-            lane_ratio = (self.ground_y - lane_min) / (lane_max - lane_min)
-        depth_scale = 0.82 + lane_ratio * 0.35
+        depth_scale = get_depth_scale(self.ground_y, lane_min, lane_max)
         shadow_width = int(self.width * shadow_scale * depth_scale)
         shadow_width = max(10, shadow_width)
         shadow_height = max(4, int(shadow_width * 0.42))
@@ -141,14 +149,14 @@ class Player:
             shadow_width,
             shadow_height,
         )
-        outer_shadow = shadow_rect.inflate(6, 2)
-        pygame.draw.ellipse(screen, (30, 30, 30), outer_shadow)
+        outer_shadow = shadow_rect.inflate(SHADOW_OUTER_INFLATE_X, SHADOW_OUTER_INFLATE_Y)
+        pygame.draw.ellipse(screen, SHADOW_OUTER_COLOR, outer_shadow)
         pygame.draw.ellipse(screen, (45, 45, 45), shadow_rect)
 
         body_rect = self.get_rect()
         if not self.on_ground:
             pose = "jump"
-        elif self.attack_timer > 0 or self.post_attack_timer > 0:
+        elif self.is_attacking():
             pose = "attack"
         elif abs(self.vel_x) > 0.05:
             pose = "walk"
@@ -163,6 +171,10 @@ class Player:
                 0.0,
                 min(1.0, 1.0 - (self.attack_timer / self.attack_duration_frames)),
             )
+        attack_anticipation_end = self.attack_anticipation_frames / self.attack_duration_frames
+        attack_strike_end = (
+            self.attack_anticipation_frames + self.attack_strike_frames
+        ) / self.attack_duration_frames
         draw_fighter(
             screen,
             body_rect=body_rect,
@@ -178,6 +190,8 @@ class Player:
             pose=pose,
             move_ratio=move_ratio,
             attack_ratio=attack_ratio,
+            attack_anticipation_end=attack_anticipation_end,
+            attack_strike_end=attack_strike_end,
         )
 
         pygame.draw.line(

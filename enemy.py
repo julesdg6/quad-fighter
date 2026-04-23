@@ -1,5 +1,5 @@
 import pygame
-from render import draw_fighter
+from render import draw_fighter, get_depth_scale
 
 LANE_CHASE_THRESHOLD = 4
 LANE_CHASE_SPEED = 1.5
@@ -7,6 +7,9 @@ SHADOW_BASE_SCALE = 1.0
 SHADOW_MAX_REDUCTION = 0.5
 SHADOW_JUMP_DIVISOR = 120.0
 HURT_ANIMATION_DURATION_FRAMES = 14.0
+SHADOW_OUTER_INFLATE_X = 6
+SHADOW_OUTER_INFLATE_Y = 2
+SHADOW_OUTER_COLOR = (30, 30, 30)
 
 class Enemy:
     def __init__(self, x, y, screen_width, screen_height):
@@ -88,10 +91,7 @@ class Enemy:
         )
         lane_min = self.screen_height * 0.5
         lane_max = self.screen_height - self.height - 20
-        lane_ratio = 0.0
-        if lane_max > lane_min:
-            lane_ratio = (self.ground_y - lane_min) / (lane_max - lane_min)
-        depth_scale = 0.82 + lane_ratio * 0.35
+        depth_scale = get_depth_scale(self.ground_y, lane_min, lane_max)
         shadow_width = int(self.width * shadow_scale * depth_scale)
         shadow_width = max(10, shadow_width)
         shadow_height = max(4, int(shadow_width * 0.42))
@@ -101,8 +101,8 @@ class Enemy:
             shadow_width,
             shadow_height,
         )
-        outer_shadow = shadow_rect.inflate(6, 2)
-        pygame.draw.ellipse(screen, (24, 24, 24), outer_shadow)
+        outer_shadow = shadow_rect.inflate(SHADOW_OUTER_INFLATE_X, SHADOW_OUTER_INFLATE_Y)
+        pygame.draw.ellipse(screen, SHADOW_OUTER_COLOR, outer_shadow)
         pygame.draw.ellipse(screen, (38, 38, 38), shadow_rect)
 
         body_color = (220, 220, 220) if self.hurt_flash_timer > 0 else (100, 100, 100)
