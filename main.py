@@ -2,7 +2,7 @@ import pygame
 import sys
 import os
 from player import Player
-from enemy import Enemy
+from enemy import Enemy, BOSS_MAX_HEALTH
 from combat import check_attack_collision, apply_knockback
 from objects import EnvironmentObject
 
@@ -24,6 +24,8 @@ IMPACT_FLASH_INFLATE_X = 26
 IMPACT_FLASH_INFLATE_Y = 20
 CAMERA_FOLLOW_RATIO = 0.45
 STAGE_CLEAR_X = WORLD_WIDTH - 360
+BOSS_TRIGGER_X = WORLD_WIDTH - 520
+BOSS_SPAWN_X = WORLD_WIDTH - 220
 QUAD_FIGHTER_AUTO_EXIT_FRAMES = int(os.environ.get("QUAD_FIGHTER_AUTO_EXIT_FRAMES", "0"))
 QUAD_FIGHTER_SCREENSHOT_PATH = os.environ.get("QUAD_FIGHTER_SCREENSHOT_PATH")
 SPAWN_PLAYER_AHEAD = 60
@@ -31,7 +33,7 @@ SPAWN_PLAYER_SPACING = 36
 SPAWN_TRIGGER_OFFSET = 420
 SPAWN_TRIGGER_SPACING = 28
 SPAWN_WORLD_RIGHT_PADDING = 80
-DEFAULT_ENEMY_GROUND_Y = HEIGHT - 112
+DEFAULT_ENEMY_GROUND_Y = HEIGHT - 136
 BREAK_EFFECT_FRAMES = 12
 BREAK_EFFECT_BASE_SIZE = 6
 BREAK_EFFECT_SIZE_PER_FRAME = 2
@@ -47,7 +49,7 @@ clock = pygame.time.Clock()
 font = pygame.font.SysFont(None, 24)
 
 # Game objects
-player = Player(140, HEIGHT - 112, WORLD_WIDTH, HEIGHT)
+player = Player(140, HEIGHT - 136, WORLD_WIDTH, HEIGHT)
 enemies_beaten = 0
 last_attack_id = player.attack_id
 hit_pause_timer = 0
@@ -56,6 +58,8 @@ impact_rect = None
 camera_x = 0
 spawn_cursor = 0
 stage_complete = False
+boss_spawned = False
+boss_defeated = False
 
 enemy_spawn_zones = [
     {"trigger_x": 260, "count": 1},
@@ -137,6 +141,18 @@ while running:
             if enemy.health > 0:
                 enemy.update(player)
 
+        if (
+            not boss_spawned
+            and spawn_cursor >= len(enemy_spawn_zones)
+            and not enemies
+            and player.x >= BOSS_TRIGGER_X
+        ):
+            boss = Enemy(BOSS_SPAWN_X, DEFAULT_ENEMY_GROUND_Y, WORLD_WIDTH, HEIGHT, is_boss=True)
+            boss.ground_y = DEFAULT_ENEMY_GROUND_Y - 8
+            boss.y = boss.ground_y
+            enemies.append(boss)
+            boss_spawned = True
+
         attack_started = player.attack_id != last_attack_id
         if attack_started:
             last_attack_id = player.attack_id
@@ -163,7 +179,7 @@ while running:
                 continue
             if check_attack_collision(player, enemy):
                 enemy.health = max(0, enemy.health - player.get_attack_damage())
-                apply_knockback(enemy, player)
+                apply_knockback(enemy, player, knockback_distance=player.get_attack_knockback())
                 hit_pause_timer = HIT_PAUSE_FRAMES
                 impact_timer = IMPACT_FLASH_FRAMES
                 impact_rect = enemy.get_rect().copy()
@@ -195,6 +211,24 @@ while running:
         if weapon_hit_registered:
             player.consume_weapon_hit()
 
+        player_rect = player.get_rect()
+        for enemy in enemies:
+            if enemy.health <= 0:
+                continue
+            enemy_attack_rect = enemy.get_attack_rect()
+            if enemy_attack_rect is None:
+                continue
+            if enemy.last_hit_player_attack_id == enemy.attack_id:
+                continue
+            if not enemy_attack_rect.colliderect(player_rect):
+                continue
+            player.health = max(0, player.health - enemy.attack_damage)
+            apply_knockback(player, enemy, knockback_distance=enemy.attack_knockback)
+            enemy.last_hit_player_attack_id = enemy.attack_id
+            hit_pause_timer = HIT_PAUSE_FRAMES
+            impact_timer = IMPACT_FLASH_FRAMES
+            impact_rect = player.get_rect().copy()
+
     if impact_timer > 0:
         impact_timer -= 1
 
@@ -207,6 +241,8 @@ while running:
         else:
             remaining_enemies.append(enemy)
     enemies = remaining_enemies
+    if boss_spawned and not boss_defeated and not any(enemy.is_boss for enemy in enemies):
+        boss_defeated = True
 
     for effect in list(break_effects):
         effect["timer"] -= 1
@@ -219,9 +255,8 @@ while running:
         player.x = camera_x + 12
 
     stage_complete = (
-        spawn_cursor >= len(enemy_spawn_zones)
-        and not enemies
-        and player.x >= STAGE_CLEAR_X
+        boss_spawned
+        and boss_defeated
     )
 
     # Draw
@@ -289,22 +324,39 @@ while running:
             2,
         )
 
-    if enemies:
-        enemy_status = f"Enemies Alive: {len(enemies)}"
+    boss_enemy = next((enemy for enemy in enemies if enemy.is_boss), None)
+    regular_enemy_count = len([enemy for enemy in enemies if not enemy.is_boss])
+    if boss_enemy is not None:
+        enemy_status = "Boss: ENGAGED"
+    elif regular_enemy_count > 0:
+        enemy_status = f"Enemies Alive: {regular_enemy_count}"
+    elif spawn_cursor >= len(enemy_spawn_zones) and not boss_spawned:
+        enemy_status = "Boss: AHEAD"
+    elif boss_spawned and boss_defeated:
+        enemy_status = "Boss: DEFEATED"
     elif spawn_cursor >= len(enemy_spawn_zones):
         enemy_status = "Enemies: CLEARED"
     else:
         enemy_status = "Enemies: WAITING"
 
-    progress_pct = int((player.x / STAGE_CLEAR_X) * 100) if STAGE_CLEAR_X > 0 else 100
+    progress_target = BOSS_TRIGGER_X if BOSS_TRIGGER_X > 0 else STAGE_CLEAR_X
+    progress_pct = int((player.x / progress_target) * 100) if progress_target > 0 else 100
     progress_pct = max(0, min(progress_pct, 100))
     weapon_text = "Weapon: FISTS"
     if player.weapon_name is not None:
         weapon_text = f"Weapon: {player.weapon_name.upper()} ({player.weapon_hits_remaining})"
     hud_text = f"Player HP: {player.health}   {enemy_status}   Stage: {progress_pct}%   {weapon_text}"
     screen.blit(font.render(hud_text, True, (220, 220, 220)), (16, 16))
+    if boss_enemy is not None:
+        boss_label = font.render("BOSS", True, (250, 220, 220))
+        screen.blit(boss_label, (16, 42))
+        boss_ratio = max(0.0, min(1.0, boss_enemy.health / BOSS_MAX_HEALTH))
+        bar_rect = pygame.Rect(78, 45, 240, 14)
+        pygame.draw.rect(screen, (70, 22, 22), bar_rect)
+        pygame.draw.rect(screen, (190, 62, 62), (bar_rect.x, bar_rect.y, int(bar_rect.width * boss_ratio), bar_rect.height))
+        pygame.draw.rect(screen, (220, 220, 220), bar_rect, 2)
     if stage_complete:
-        clear_text = font.render("AREA CLEAR - STAGE COMPLETE", True, (240, 240, 240))
+        clear_text = font.render("BOSS DEFEATED - STAGE COMPLETE", True, (240, 240, 240))
         screen.blit(clear_text, (WIDTH // 2 - clear_text.get_width() // 2, 70))
 
     pygame.display.flip()
