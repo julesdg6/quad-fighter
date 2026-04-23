@@ -7,7 +7,9 @@ from enemy import Enemy, BOSS_MAX_HEALTH
 from combat import check_attack_collision, apply_knockback
 from objects import EnvironmentObject
 from background import generate_background, draw_background_pre_lane, draw_background_post_lane, LEVEL_SEED_MULTIPLIER
+from music import AcidMachine
 
+pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.init()
 
 # Configuration
@@ -108,6 +110,8 @@ def build_environment_objects():
 environment_objects = build_environment_objects()
 break_effects = []
 
+acid = AcidMachine()
+
 
 def spawn_enemies(player_x, zone):
     trigger_x = zone["trigger_x"]
@@ -138,7 +142,8 @@ running = True
 frame_count = 0
 screenshot_saved = False
 while running:
-    clock.tick(FPS)
+    dt = clock.tick(FPS) / 1000.0
+    acid.tick(dt)
     # Draw background: sky gradient + far/mid buildings
     draw_background_pre_lane(screen, camera_x, bg_data, WIDTH, HEIGHT, LANE_TOP)
     # Fill below-lane foreground floor area
