@@ -84,7 +84,8 @@ class Enemy:
     def get_rect(self):
         return pygame.Rect(int(self.x), int(self.y), self.width, self.height)
 
-    def draw(self, screen):
+    def draw(self, screen, camera_x=0):
+        draw_x = self.x - camera_x
         shadow_scale = SHADOW_BASE_SCALE - min(
             SHADOW_MAX_REDUCTION,
             max(0.0, (self.ground_y - self.y) / SHADOW_JUMP_DIVISOR),
@@ -96,7 +97,7 @@ class Enemy:
         shadow_width = max(10, shadow_width)
         shadow_height = max(4, int(shadow_width * 0.42))
         shadow_rect = pygame.Rect(
-            int(self.x + self.width / 2 - shadow_width / 2),
+            int(draw_x + self.width / 2 - shadow_width / 2),
             int(self.ground_y + self.height + 3 - shadow_height / 2),
             shadow_width,
             shadow_height,
@@ -106,7 +107,7 @@ class Enemy:
         pygame.draw.ellipse(screen, (38, 38, 38), shadow_rect)
 
         hurt_flash = self.hurt_flash_timer > 0
-        body_rect = self.get_rect()
+        body_rect = pygame.Rect(int(draw_x), int(self.y), self.width, self.height)
         if self.hurt_anim_timer > 0:
             pose = "hurt"
         elif abs(self.vel_x) > 0.05:
@@ -154,7 +155,7 @@ class Enemy:
         pygame.draw.line(
             screen,
             (20, 20, 20),
-            (int(self.x), int(self.y + self.height)),
-            (int(self.x + self.width), int(self.y + self.height)),
+            (int(draw_x), int(self.y + self.height)),
+            (int(draw_x + self.width), int(self.y + self.height)),
             2,
         )

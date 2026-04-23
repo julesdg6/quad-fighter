@@ -48,6 +48,10 @@ class Player:
         self.attack_id = 0
         self.facing = 1
         self.health = 100
+        self.weapon_name = None
+        self.weapon_hits_remaining = 0
+        self.weapon_damage_bonus = 0
+        self.weapon_range_bonus = 0
 
     def update(self):
         keys = pygame.key.get_pressed()
@@ -119,7 +123,7 @@ class Player:
         strike_end = strike_start + self.attack_strike_frames
         if elapsed < strike_start or elapsed >= strike_end:
             return None
-        attack_width = 24
+        attack_width = 24 + self.weapon_range_bonus
         attack_height = 18
         if self.facing > 0:
             attack_x = int(self.x + self.width + 2)
@@ -132,7 +136,27 @@ class Player:
             attack_height,
         )
 
-    def draw(self, screen):
+    def get_attack_damage(self):
+        return 10 + self.weapon_damage_bonus
+
+    def equip_weapon(self, name, hits, damage_bonus, range_bonus):
+        self.weapon_name = name
+        self.weapon_hits_remaining = hits
+        self.weapon_damage_bonus = damage_bonus
+        self.weapon_range_bonus = range_bonus
+
+    def consume_weapon_hit(self):
+        if self.weapon_name is None:
+            return
+        self.weapon_hits_remaining -= 1
+        if self.weapon_hits_remaining <= 0:
+            self.weapon_name = None
+            self.weapon_hits_remaining = 0
+            self.weapon_damage_bonus = 0
+            self.weapon_range_bonus = 0
+
+    def draw(self, screen, camera_x=0):
+        draw_x = self.x - camera_x
         shadow_scale = SHADOW_BASE_SCALE - min(
             SHADOW_MAX_REDUCTION,
             max(0.0, (self.ground_y - self.y) / SHADOW_JUMP_DIVISOR),
@@ -144,7 +168,7 @@ class Player:
         shadow_width = max(10, shadow_width)
         shadow_height = max(4, int(shadow_width * 0.42))
         shadow_rect = pygame.Rect(
-            int(self.x + self.width / 2 - shadow_width / 2),
+            int(draw_x + self.width / 2 - shadow_width / 2),
             int(self.ground_y + self.height + 3 - shadow_height / 2),
             shadow_width,
             shadow_height,
@@ -153,7 +177,7 @@ class Player:
         pygame.draw.ellipse(screen, SHADOW_OUTER_COLOR, outer_shadow)
         pygame.draw.ellipse(screen, (45, 45, 45), shadow_rect)
 
-        body_rect = self.get_rect()
+        body_rect = pygame.Rect(int(draw_x), int(self.y), self.width, self.height)
         if not self.on_ground:
             pose = "jump"
         elif self.is_attacking():
@@ -214,11 +238,12 @@ class Player:
         pygame.draw.line(
             screen,
             (60, 60, 60),
-            (int(self.x), int(self.y + self.height)),
-            (int(self.x + self.width), int(self.y + self.height)),
+            (int(draw_x), int(self.y + self.height)),
+            (int(draw_x + self.width), int(self.y + self.height)),
             2,
         )
 
         attack_rect = self.get_attack_rect()
         if attack_rect is not None:
-            pygame.draw.rect(screen, (255, 220, 0), attack_rect, 2)
+            draw_attack_rect = attack_rect.move(-int(camera_x), 0)
+            pygame.draw.rect(screen, (255, 220, 0), draw_attack_rect, 2)
