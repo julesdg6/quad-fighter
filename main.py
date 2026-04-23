@@ -9,6 +9,8 @@ pygame.init()
 # Configuration
 WIDTH, HEIGHT = 800, 600
 FPS = 60
+LANE_TOP = int(HEIGHT * 0.5)
+LANE_BOTTOM = HEIGHT - 92
 
 # Setup
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -18,7 +20,10 @@ font = pygame.font.SysFont(None, 24)
 
 # Game objects
 player = Player(140, HEIGHT - 112, WIDTH, HEIGHT)
+enemy_index = 1
 enemy = Enemy(520, HEIGHT - 112, WIDTH, HEIGHT)
+enemies_beaten = 0
+clear_shown = False
 
 # Main loop
 running = True
@@ -33,21 +38,44 @@ while running:
 
     # Update
     player.update()
-    enemy.update(player)
+    if enemy is not None and enemy.health > 0:
+        enemy.update(player)
 
     # Combat
-    if check_attack_collision(player, enemy) and enemy.health > 0:
+    if enemy is not None and check_attack_collision(player, enemy) and enemy.health > 0:
         enemy.health = max(0, enemy.health - 10)
         apply_knockback(enemy, player)
 
+    if enemy is not None and enemy.health <= 0 and not enemy.defeat_handled:
+        enemy.defeat_handled = True
+        enemies_beaten += 1
+        if enemies_beaten == 1:
+            enemy_index = 2
+            enemy = Enemy(610, HEIGHT - 112, WIDTH, HEIGHT)
+        else:
+            enemy = None
+            clear_shown = True
+
     # Draw
-    pygame.draw.line(screen, (55, 55, 55), (0, int(HEIGHT * 0.5)), (WIDTH, int(HEIGHT * 0.5)), 1)
+    pygame.draw.rect(screen, (40, 40, 40), (0, LANE_TOP, WIDTH, LANE_BOTTOM - LANE_TOP))
+    pygame.draw.line(screen, (68, 68, 68), (0, LANE_TOP), (WIDTH, LANE_TOP), 2)
+    pygame.draw.line(screen, (78, 78, 78), (0, LANE_BOTTOM), (WIDTH, LANE_BOTTOM), 2)
     player.draw(screen)
-    if enemy.health > 0:
+    if enemy is not None and enemy.health > 0:
         enemy.draw(screen)
 
-    hud_text = f"Player HP: {player.health}   Enemy HP: {enemy.health}"
+    if enemy is not None:
+        enemy_status = f"Enemy {enemy_index} HP: {enemy.health}"
+    elif clear_shown:
+        enemy_status = "Enemies: CLEARED"
+    else:
+        enemy_status = "Enemy HP: --"
+
+    hud_text = f"Player HP: {player.health}   {enemy_status}"
     screen.blit(font.render(hud_text, True, (220, 220, 220)), (16, 16))
+    if clear_shown:
+        clear_text = font.render("AREA CLEAR", True, (240, 240, 240))
+        screen.blit(clear_text, (WIDTH // 2 - clear_text.get_width() // 2, 70))
 
     pygame.display.flip()
 
