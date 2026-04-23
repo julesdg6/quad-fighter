@@ -16,6 +16,10 @@ FAR_PARALLAX = 0.12
 MID_PARALLAX = 0.38
 NEAR_PARALLAX = 0.65
 
+SHOP_PROBABILITY = 0.45    # fraction of mid-buildings that have a shop front
+CAR_PROBABILITY = 0.72     # fraction of vehicles that are cars (vs motorbikes)
+LEVEL_SEED_MULTIPLIER = 37 # prime multiplier to spread seeds across levels
+
 # ── Colour palettes ───────────────────────────────────────────────────────────
 
 _SKY_TOP = (16, 18, 30)
@@ -92,7 +96,7 @@ def _gen_mid_buildings(rng, world_w):
         h = rng.randint(75, 165)
         color = _pick(rng, _MID_BLDG)
         accent = _pick(rng, _ACCENT)
-        has_shop = rng.random() < 0.45
+        has_shop = rng.random() < SHOP_PROBABILITY
         awning = _pick(rng, _AWNING) if has_shop else None
         cols = max(1, (w - 16) // 22)
         rows = max(1, (h - 32) // 26)
@@ -124,7 +128,7 @@ def _gen_vehicles(rng, world_w):
     vehs = []
     x = 400
     while x < world_w - 100:
-        kind = "car" if rng.random() < 0.72 else "motorbike"
+        kind = "car" if rng.random() < CAR_PROBABILITY else "motorbike"
         color = _pick(rng, _VEHICLE)
         facing = 1 if rng.random() < 0.5 else -1
         vehs.append({"x": float(x), "kind": kind, "color": color, "facing": facing})
@@ -146,7 +150,7 @@ def _gen_bg_chars(rng, world_w):
 
 # ── Public: generate ──────────────────────────────────────────────────────────
 
-def generate_background(world_w, height, lane_top, seed=42):
+def generate_background(world_w, lane_top, seed=42):
     """
     Generate all background data.
     Call once per level; pass the result to the draw functions each frame.

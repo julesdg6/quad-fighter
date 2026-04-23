@@ -6,7 +6,7 @@ from player import Player
 from enemy import Enemy, BOSS_MAX_HEALTH
 from combat import check_attack_collision, apply_knockback
 from objects import EnvironmentObject
-from background import generate_background, draw_background_pre_lane, draw_background_post_lane
+from background import generate_background, draw_background_pre_lane, draw_background_post_lane, LEVEL_SEED_MULTIPLIER
 
 pygame.init()
 
@@ -70,7 +70,7 @@ hit_pause_timer = 0
 impact_timer = 0
 impact_rect = None
 camera_x = 0
-bg_data = generate_background(WORLD_WIDTH, HEIGHT, LANE_TOP)
+bg_data = generate_background(WORLD_WIDTH, LANE_TOP)
 spawn_cursor = 0
 stage_complete = False
 boss_spawned = False
@@ -332,7 +332,7 @@ while running:
         just_advanced_level = False
         if level_transition_timer == 0:
             level_number += 1
-            bg_data = generate_background(WORLD_WIDTH, HEIGHT, LANE_TOP, seed=level_number * 37 + 5)
+            bg_data = generate_background(WORLD_WIDTH, LANE_TOP, seed=level_number * LEVEL_SEED_MULTIPLIER + 5)
             player.x = PLAYER_SPAWN_X
             player.ground_y = player.screen_height - player.height - 40
             player.y = player.ground_y
