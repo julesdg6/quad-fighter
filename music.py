@@ -33,11 +33,11 @@ STEPS_PER_BAR = 16    # 16th-note resolution
 SCALE = [0, 3, 5, 7, 10, 12, 15, 17, 19]
 
 # Mixer channels reserved for the acid machine.
-CH_KICK  = 4
+CH_KICK = 4
 CH_SNARE = 5
 CH_HIHAT = 6
-CH_BASS  = 7
-CH_BASS2 = 8   # second 303 voice (square wave)
+CH_BASS = 7
+CH_BASS2 = 8
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -272,8 +272,8 @@ class AcidMachine:
         self._cache_lock = threading.Lock()
 
         # Generate initial patterns (two independent bass patterns for dual 303)
-        self._drum_pattern  = _gen_drum_pattern(self._rng, self._bar)
-        self._bass_pattern  = _gen_bass_pattern(self._root, self._rng)
+        self._drum_pattern = _gen_drum_pattern(self._rng, self._bar)
+        self._bass_pattern = _gen_bass_pattern(self._root, self._rng)
         self._bass_pattern2 = _gen_bass_pattern(self._root, self._rng)
 
         # Track which roots are already being pre-generated to avoid duplicate threads.
@@ -349,7 +349,7 @@ class AcidMachine:
 
         # New bass patterns every 8 bars (was 2) – let each phrase breathe
         if self._bar % 8 == 0:
-            self._bass_pattern  = _gen_bass_pattern(self._root, self._rng)
+            self._bass_pattern = _gen_bass_pattern(self._root, self._rng)
             self._bass_pattern2 = _gen_bass_pattern(self._root, self._rng)
 
         # Subtle BPM drift every 16 bars (±3 BPM) – keeps it alive
