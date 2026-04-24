@@ -224,12 +224,8 @@ class Enemy:
                 min_sep = (self.width + other.width) / 2 + ENEMY_SEPARATION_DIST
                 if abs(dx) < min_sep:
                     push = (min_sep - abs(dx)) * 0.25
-                    if dx > 0:
-                        self.x += push
-                    elif dx < 0:
-                        self.x -= push
-                    else:
-                        self.x += push  # tied: nudge right
+                    # Push right when self is to the right or exactly tied; left otherwise
+                    self.x += push if dx >= 0 else -push
 
         self.x = max(0, min(self.x, self.screen_width - self.width))
         lane_min = self.screen_height * 0.5
