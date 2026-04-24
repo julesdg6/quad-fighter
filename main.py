@@ -9,6 +9,7 @@ from objects import EnvironmentObject
 from background import generate_background, draw_background_pre_lane, draw_background_post_lane, LEVEL_SEED_MULTIPLIER
 from music import AcidMachine
 from splash import SplashScreen
+from theme import get_theme, next_theme_name
 
 pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.init()
@@ -61,7 +62,6 @@ ENEMY_ATTACK_STAGGER_FRAMES = 22  # per-enemy stagger offset so groups don't all
 CAMERA_LOCK_PADDING = 80           # extra world-pixels beyond current right edge when locking
 CAMERA_LOCK_RIGHT_MARGIN = 28      # keep player this far (px) from locked right screen edge
 CAMERA_LOCK_BAR_WIDTH = 6          # width of the on-screen indicator drawn on right edge when locked
-CAMERA_LOCK_BAR_COLOR = (100, 32, 32)  # dark-red indicator colour
 PIPE_WEAPON_HITS = 6
 PIPE_WEAPON_DAMAGE_BONUS = 8
 PIPE_WEAPON_RANGE_BONUS = 20
@@ -110,7 +110,8 @@ hit_pause_timer = 0
 impact_timer = 0
 impact_rect = None
 camera_x = 0
-bg_data = generate_background(WORLD_WIDTH, LANE_TOP)
+current_theme = get_theme("street")
+bg_data = generate_background(WORLD_WIDTH, LANE_TOP, theme=current_theme)
 spawn_cursor = 0
 stage_complete = False
 boss_spawned = False
@@ -224,7 +225,7 @@ while running:
     # Draw background: sky gradient + far/mid buildings
     draw_background_pre_lane(screen, camera_x, bg_data, WIDTH, HEIGHT, LANE_TOP)
     # Fill below-lane foreground floor area
-    pygame.draw.rect(screen, (28, 28, 28), (0, LANE_BOTTOM, WIDTH, HEIGHT - LANE_BOTTOM))
+    pygame.draw.rect(screen, current_theme["floor_fg"], (0, LANE_BOTTOM, WIDTH, HEIGHT - LANE_BOTTOM))
 
     # Event handling
     for event in pygame.event.get():
@@ -476,7 +477,8 @@ while running:
         just_advanced_level = False
         if level_transition_timer == 0:
             level_number += 1
-            bg_data = generate_background(WORLD_WIDTH, LANE_TOP, seed=level_number * LEVEL_SEED_MULTIPLIER + 5)
+            current_theme = get_theme(next_theme_name(current_theme["name"]))
+            bg_data = generate_background(WORLD_WIDTH, LANE_TOP, seed=level_number * LEVEL_SEED_MULTIPLIER + 5, theme=current_theme)
             player.x = PLAYER_SPAWN_X
             player.ground_y = player.screen_height - player.height - 40
             player.y = player.ground_y
@@ -541,22 +543,22 @@ while running:
 
     # Draw
     lane_height = LANE_BOTTOM - LANE_TOP
+    lane_bands   = current_theme["lane_bands"]
+    lane_guides  = current_theme["lane_guides"]
     for i in range(LANE_BAND_COUNT):
         band_top = LANE_TOP + int(i * lane_height / LANE_BAND_COUNT)
         band_bottom = LANE_TOP + int((i + 1) * lane_height / LANE_BAND_COUNT)
-        shade = 38 + i * 4
-        pygame.draw.rect(screen, (shade, shade, shade), (0, band_top, WIDTH, band_bottom - band_top))
+        pygame.draw.rect(screen, lane_bands[i], (0, band_top, WIDTH, band_bottom - band_top))
         if i > 0:
-            guide = 55 + i * 4
-            pygame.draw.line(screen, (guide, guide, guide), (0, band_top), (WIDTH, band_top), 1)
-    pygame.draw.line(screen, (72, 72, 72), (0, LANE_TOP), (WIDTH, LANE_TOP), 2)
-    pygame.draw.line(screen, (86, 86, 86), (0, LANE_BOTTOM), (WIDTH, LANE_BOTTOM), 2)
+            pygame.draw.line(screen, lane_guides[i - 1], (0, band_top), (WIDTH, band_top), 1)
+    pygame.draw.line(screen, current_theme["lane_top_line"], (0, LANE_TOP), (WIDTH, LANE_TOP), 2)
+    pygame.draw.line(screen, current_theme["lane_bot_line"], (0, LANE_BOTTOM), (WIDTH, LANE_BOTTOM), 2)
     center_lane_y = LANE_TOP + int(lane_height * LANE_GUIDE_RATIO)
     camera_dash_offset = (-camera_x) % LANE_DASH_SPACING
     for x in range(-LANE_DASH_SPACING + camera_dash_offset, WIDTH + LANE_DASH_SPACING, LANE_DASH_SPACING):
         pygame.draw.line(
             screen,
-            (78, 78, 78),
+            current_theme["lane_dash"],
             (x, center_lane_y),
             (x + LANE_DASH_LENGTH, center_lane_y),
             1,
@@ -574,22 +576,23 @@ while running:
 
     for kind, _, entity in drawables:
         if kind == "player":
-            entity.draw(screen, camera_x=camera_x)
+            entity.draw(screen, camera_x=camera_x, theme=current_theme)
         elif kind == "enemy":
-            entity.draw(screen, camera_x=camera_x)
+            entity.draw(screen, camera_x=camera_x, theme=current_theme)
         else:
             entity.draw(screen, camera_x=camera_x)
 
     if impact_timer > 0 and impact_rect is not None:
         flash_rect = impact_rect.inflate(IMPACT_FLASH_INFLATE_X, IMPACT_FLASH_INFLATE_Y).move(-camera_x, 0)
-        pulse_color = (230, 230, 230) if impact_timer % 2 == 0 else (200, 200, 200)
+        flash_base = current_theme["impact_flash"]
+        pulse_color = flash_base if impact_timer % 2 == 0 else tuple(max(0, c - 30) for c in flash_base)
         pygame.draw.rect(screen, pulse_color, flash_rect, 2)
 
-    # Grab indicator: cyan outline around the grabbed enemy
+    # Grab indicator: outline around the grabbed enemy
     if player.is_grabbing() and player.grabbed_enemy is not None:
         ge = player.grabbed_enemy
         grab_draw_rect = ge.get_rect().move(-camera_x, 0).inflate(6, 6)
-        pygame.draw.rect(screen, (80, 220, 220), grab_draw_rect, 2)
+        pygame.draw.rect(screen, current_theme["grab_outline"], grab_draw_rect, 2)
 
     for effect in break_effects:
         break_effect_size = (
@@ -599,26 +602,26 @@ while running:
         fy = int(effect["y"])
         pygame.draw.line(
             screen,
-            (210, 210, 210),
+            current_theme["break_effect"],
             (fx - break_effect_size, fy - break_effect_size),
             (fx + break_effect_size, fy + break_effect_size),
             2,
         )
         pygame.draw.line(
             screen,
-            (210, 210, 210),
+            current_theme["break_effect"],
             (fx - break_effect_size, fy + break_effect_size),
             (fx + break_effect_size, fy - break_effect_size),
             2,
         )
 
-    # Camera-lock boundary indicator: dark-red bar on the right screen edge
+    # Camera-lock boundary indicator on the right screen edge
     if camera_lock_right is not None:
         lock_screen_x = camera_lock_right - camera_x - CAMERA_LOCK_BAR_WIDTH
         if 0 <= lock_screen_x < WIDTH:
             pygame.draw.rect(
                 screen,
-                CAMERA_LOCK_BAR_COLOR,
+                current_theme["camera_lock_bar"],
                 (lock_screen_x, LANE_TOP, CAMERA_LOCK_BAR_WIDTH, LANE_BOTTOM - LANE_TOP),
             )
 
@@ -646,59 +649,61 @@ while running:
     hud_text = (
         f"Lvl: {level_number}   {enemy_status}   Stage: {progress_pct}%   {weapon_text}"
     )
-    screen.blit(font.render(hud_text, True, (220, 220, 220)), (16, 16))
+    screen.blit(font.render(hud_text, True, current_theme["hud_text"]), (16, 16))
 
     # Grab status prompt
     if player.is_grabbing():
-        grab_prompt = font.render("GRAB  [Z] THROW", True, (80, 220, 220))
+        grab_prompt = font.render("GRAB  [Z] THROW", True, current_theme["hud_grab"])
         screen.blit(grab_prompt, (WIDTH // 2 - grab_prompt.get_width() // 2, HEIGHT - 42))
 
     # Player strength / health bar
     hp_ratio = max(0.0, min(1.0, player.health / player.max_health))
     if hp_ratio > 0.6:
-        hp_color = (72, 200, 80)
+        hp_color = current_theme["hud_hp_good"]
     elif hp_ratio > 0.3:
-        hp_color = (220, 190, 50)
+        hp_color = current_theme["hud_hp_mid"]
     else:
-        hp_color = (210, 60, 60)
-    hp_label = font.render("STR", True, (220, 220, 220))
+        hp_color = current_theme["hud_hp_low"]
+    hp_label = font.render("STR", True, current_theme["hud_text"])
     screen.blit(hp_label, (16, 36))
     hp_bar_rect = pygame.Rect(54, 39, 160, 12)
-    pygame.draw.rect(screen, (40, 40, 40), hp_bar_rect)
+    pygame.draw.rect(screen, current_theme["hud_bar_bg"], hp_bar_rect)
     pygame.draw.rect(screen, hp_color, (hp_bar_rect.x, hp_bar_rect.y, int(hp_bar_rect.width * hp_ratio), hp_bar_rect.height))
-    pygame.draw.rect(screen, (180, 180, 180), hp_bar_rect, 1)
-    hp_val = font.render(f"{player.health}/{player.max_health}", True, (200, 200, 200))
+    pygame.draw.rect(screen, current_theme["hud_bar_outline"], hp_bar_rect, 1)
+    hp_val = font.render(f"{player.health}/{player.max_health}", True, current_theme["hud_text"])
     screen.blit(hp_val, (220, 36))
 
     if boss_enemy is not None:
-        boss_label = font.render("BOSS", True, (250, 220, 220))
+        boss_label = font.render("BOSS", True, current_theme["hud_text"])
         screen.blit(boss_label, (16, 57))
         boss_ratio = max(0.0, min(1.0, boss_enemy.health / BOSS_MAX_HEALTH))
         bar_rect = pygame.Rect(78, 60, 240, 14)
-        pygame.draw.rect(screen, (70, 22, 22), bar_rect)
-        pygame.draw.rect(screen, (190, 62, 62), (bar_rect.x, bar_rect.y, int(bar_rect.width * boss_ratio), bar_rect.height))
-        pygame.draw.rect(screen, (220, 220, 220), bar_rect, 2)
+        pygame.draw.rect(screen, current_theme["hud_boss_bg"], bar_rect)
+        pygame.draw.rect(screen, current_theme["hud_boss_bar"], (bar_rect.x, bar_rect.y, int(bar_rect.width * boss_ratio), bar_rect.height))
+        pygame.draw.rect(screen, current_theme["hud_bar_outline"], bar_rect, 2)
     if section_message_timer > 0:
-        section_text = font.render(section_message, True, (235, 235, 235))
+        section_text = font.render(section_message, True, current_theme["hud_section"])
         screen.blit(section_text, (WIDTH // 2 - section_text.get_width() // 2, 82))
 
     # Combo chain counter
     if player.combo_step > 0:
-        combo_surf = font.render(f"COMBO  x{player.combo_step}", True, (255, 215, 0))
+        combo_surf = font.render(f"COMBO  x{player.combo_step}", True, current_theme["hud_combo"])
         screen.blit(combo_surf, (WIDTH // 2 - combo_surf.get_width() // 2, 108))
     if stage_complete or level_transition_timer > 0:
-        pulse = LEVEL_COMPLETE_PULSE_BASE + int(
+        pulse_base = current_theme["hud_level_pulse"]
+        pulse_amount = int(
             LEVEL_COMPLETE_PULSE_AMPLITUDE
             * abs(math.sin((frame_count % LEVEL_COMPLETE_PULSE_PERIOD_FRAMES) * LEVEL_COMPLETE_PULSE_STEP))
         )
-        clear_text = font.render("LEVEL COMPLETE", True, (pulse, pulse, pulse))
+        pulse_color = tuple(min(255, c + pulse_amount) for c in pulse_base)
+        clear_text = font.render("LEVEL COMPLETE", True, pulse_color)
         screen.blit(clear_text, (WIDTH // 2 - clear_text.get_width() // 2, 112))
         if level_transition_timer > 0:
             seconds_remaining = max(1, (level_transition_timer + FPS - 1) // FPS)
             next_level_text = font.render(
                 f"NEXT LEVEL IN {seconds_remaining}",
                 True,
-                (210, 210, 210),
+                current_theme["hud_text"],
             )
             screen.blit(next_level_text, (WIDTH // 2 - next_level_text.get_width() // 2, 138))
 
