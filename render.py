@@ -269,7 +269,7 @@ def draw_fighter(
     rear_knee_extra_lift = 0.0
 
     if pose == "walk":
-        stride_amp = width * (0.22 + move_ratio * 0.10)
+        stride_amp = width * (0.14 + move_ratio * 0.08)
         # front_foot x = center_x + facing*(base_sep + front_stride)
         # rear_foot  x = center_x - facing*(base_sep + back_stride)
         # Using the same stride value for both gives proper 180° bipedal opposition:
@@ -278,15 +278,15 @@ def draw_fighter(
         back_stride = walk_sin * stride_amp
         # cos-based lift: each foot is airborne for exactly half the cycle,
         # and the two halves never overlap (only one foot off the ground at a time).
-        front_lift = max(0.0, walk_cos) * height * 0.20
-        back_lift = max(0.0, -walk_cos) * height * 0.20
+        front_lift = max(0.0, walk_cos) * height * 0.14
+        back_lift = max(0.0, -walk_cos) * height * 0.14
         # Knee rises more when foot is in swing phase.
-        front_knee_extra_lift = front_lift * 0.50
-        rear_knee_extra_lift = back_lift * 0.50
+        front_knee_extra_lift = front_lift * 0.45
+        rear_knee_extra_lift = back_lift * 0.45
         # Counter-rotate shoulders against the hip/leg swing for a natural gait.
-        shoulder_counter = -walk_sin * width * 0.09
-        torso_shift_x = facing * width * (0.03 + move_ratio * 0.03)
-        torso_tilt = (-0.05 - walk_sin * 0.02) * facing
+        shoulder_counter = -walk_sin * width * 0.07
+        torso_shift_x = facing * width * (0.02 + move_ratio * 0.02)
+        torso_tilt = (-0.04 - walk_sin * 0.02) * facing
         stance_drop = height * 0.02
         bob += math.sin(walk_phase * 2.0) * WALK_BOB_AMPLITUDE
     elif pose == "jump":
@@ -500,8 +500,8 @@ def draw_fighter(
             attack_extension = 0.3 * settle
     elif pose == "idle":
         # Martial arts guard: staggered feet, slight crouch
-        front_stride = width * 0.12
-        back_stride = -width * 0.05
+        front_stride = width * 0.08
+        back_stride = -width * 0.04
         stance_drop = height * IDLE_STANCE_DROP_RATIO
         torso_shift_x = base_torso_shift
         torso_tilt = -0.02 * facing
@@ -697,7 +697,7 @@ def draw_fighter(
     front_elbow = _joint_midpoint(front_shoulder, front_hand, height * 0.08, facing * width * 0.05)
     rear_elbow = _joint_midpoint(rear_shoulder, rear_hand, height * 0.08, -facing * width * 0.05)
 
-    base_foot_separation = width * 0.24
+    base_foot_separation = width * 0.12
     front_foot = (
         int(center_x + facing * (base_foot_separation + front_stride)),
         int(bottom_y - front_lift),
@@ -716,8 +716,8 @@ def draw_fighter(
             int(bottom_y - height * 0.18),
         )
 
-    front_knee = _joint_midpoint(front_hip, front_foot, height * 0.11 + front_knee_extra_lift, facing * width * 0.06)
-    rear_knee = _joint_midpoint(rear_hip, rear_foot, height * 0.1 + rear_knee_extra_lift, -facing * width * 0.05)
+    front_knee = _joint_midpoint(front_hip, front_foot, height * 0.11 + front_knee_extra_lift, facing * width * 0.04)
+    rear_knee = _joint_midpoint(rear_hip, rear_foot, height * 0.10 + rear_knee_extra_lift, -facing * width * 0.04)
 
     # Rear limbs (layered behind torso)
     _draw_bent_limb(
