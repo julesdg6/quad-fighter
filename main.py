@@ -57,6 +57,7 @@ FOOD_HEAL_AMOUNT = 28
 MID_SECTION_START_X = 780
 QUAD_FIGHTER_AUTO_EXIT_FRAMES = int(os.environ.get("QUAD_FIGHTER_AUTO_EXIT_FRAMES", "0"))
 QUAD_FIGHTER_SCREENSHOT_PATH = os.environ.get("QUAD_FIGHTER_SCREENSHOT_PATH")
+SPECIAL_FLASH_ALPHA_RATE = 6  # alpha units per remaining-frame tick for the special-move banner
 SPAWN_OFFSCREEN_MARGIN = 60  # how far off the right screen edge a right-side enemy spawns
 SPAWN_PLAYER_SPACING = 36
 SPAWN_TRIGGER_OFFSET = 420
@@ -769,7 +770,7 @@ while running:
 
     # Special move banner: fades out over ~50 frames
     if special_flash_timer > 0:
-        alpha = min(255, special_flash_timer * 6)
+        alpha = min(255, special_flash_timer * SPECIAL_FLASH_ALPHA_RATE)
         special_surf = font.render(f"★  {special_flash_name}  ★", True, (200, 64, 255))
         special_surf.set_alpha(alpha)
         screen.blit(special_surf, (WIDTH // 2 - special_surf.get_width() // 2, 130))

@@ -356,29 +356,28 @@ class Player:
             triggered_attack = None
             if not self.is_grabbing():
                 if not self.on_ground:
+                    can_aerial = (
+                        self.attack_cooldown_timer <= 0
+                        and not self.is_attacking()
+                        and not self.aerial_attack_used
+                    )
                     if (
                         _key("move_down", pygame.K_DOWN)
                         and secondary_pressed
                         and not self.prev_secondary_pressed
-                        and self.attack_cooldown_timer <= 0
-                        and not self.is_attacking()
-                        and not self.aerial_attack_used
+                        and can_aerial
                     ):
                         triggered_attack = "dive_kick"
                     elif (
                         secondary_pressed
                         and not self.prev_secondary_pressed
-                        and self.attack_cooldown_timer <= 0
-                        and not self.is_attacking()
-                        and not self.aerial_attack_used
+                        and can_aerial
                     ):
                         triggered_attack = "aerial_heavy"
                     elif (
                         primary_pressed
                         and not self.prev_primary_pressed
-                        and self.attack_cooldown_timer <= 0
-                        and not self.is_attacking()
-                        and not self.aerial_attack_used
+                        and can_aerial
                     ):
                         triggered_attack = "aerial_light"
                 elif self.crouching:
@@ -401,7 +400,8 @@ class Player:
                     if (
                         primary_pressed
                         and secondary_pressed
-                        and (not self.prev_primary_pressed or not self.prev_secondary_pressed)
+                        and not self.prev_primary_pressed
+                        and not self.prev_secondary_pressed
                         and self.attack_cooldown_timer <= 0
                         and not self.is_attacking()
                     ):
@@ -544,7 +544,7 @@ class Player:
         attack_height = self.attack_height
         # Spin attack: centered hitbox that covers both sides of the player
         if self.current_attack_type == "spin_attack":
-            center_x = int(self.x + self.width / 2 - attack_width // 2)
+            center_x = int(self.x + self.width // 2 - attack_width // 2)
             return pygame.Rect(
                 center_x,
                 int(self.y + self.height * 0.15),
