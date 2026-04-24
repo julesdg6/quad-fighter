@@ -2,7 +2,7 @@ import pygame
 import sys
 import os
 import math
-from player import Player, GRAB_RANGE
+from player import Player, GRAB_RANGE, CROUCH_DEFENSE_RATIO
 from enemy import Enemy, BOSS_MAX_HEALTH
 from combat import check_attack_collision, apply_knockback, get_hit_region
 from objects import EnvironmentObject
@@ -465,7 +465,15 @@ while running:
                 continue
             if not enemy_attack_rect.colliderect(player_rect):
                 continue
-            player.health = max(0, player.health - enemy.attack_damage)
+            # Jump escape: invincibility frames at jump start let the player evade
+            if player.invincible_timer > 0:
+                enemy.last_hit_player_attack_id = enemy.attack_id
+                continue
+            damage = enemy.attack_damage
+            # Crouch defense: halve incoming damage while crouching
+            if player.crouching:
+                damage = max(1, int(damage * CROUCH_DEFENSE_RATIO))
+            player.health = max(0, player.health - damage)
             region = get_hit_region(enemy_attack_rect, player)
             apply_knockback(player, enemy, knockback_distance=enemy.attack_knockback, hit_region=region)
             enemy.last_hit_player_attack_id = enemy.attack_id

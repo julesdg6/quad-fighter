@@ -19,6 +19,14 @@ AERIAL_ATTACK_HITBOX_COLOR = (64, 220, 255)
 
 AERIAL_HEAVY_FORWARD_VEL = 5.0
 
+# Invincibility frames granted at the moment the player leaves the ground (jump).
+# Classic beat-em-up escape: tapping jump gives a brief window to pass through attacks.
+JUMP_INVINCIBLE_FRAMES = 8
+
+# Damage multiplier applied to hits absorbed while crouching.
+# Crouching acts as a guard stance that halves incoming damage.
+CROUCH_DEFENSE_RATIO = 0.5
+
 GRAB_RANGE = 72           # max pixel distance (by rect inflation) to latch onto an enemy
 GRAB_MAX_FRAMES = 110     # frames before the enemy wriggles free
 GRAB_COOLDOWN_FRAMES = 40  # cooldown after releasing a grab
@@ -178,6 +186,7 @@ class Player:
         self.prev_grab_pressed = False
         self.combo_step = 0
         self.combo_window_timer = 0
+        self.invincible_timer = 0
 
     def update(self, extra_input=None, keyboard_map=None):
         """Update player state.
@@ -217,6 +226,8 @@ class Player:
             self.hurt_anim_timer = max(self.hurt_anim_timer, 1)
         if self.grab_cooldown_timer > 0:
             self.grab_cooldown_timer -= 1
+        if self.invincible_timer > 0:
+            self.invincible_timer -= 1
 
         # Grab trigger: signal for the main loop to attempt a grab this frame
         self.grab_triggered = (
@@ -274,6 +285,7 @@ class Player:
             if _key("jump", pygame.K_SPACE) and self.on_ground and not self.crouching and not self.is_grabbing():
                 self.vel_y = self.jump_power
                 self.on_ground = False
+                self.invincible_timer = JUMP_INVINCIBLE_FRAMES
 
             # Manage grab state while holding an enemy
             if self.grabbed_enemy is not None:
@@ -613,6 +625,10 @@ class Player:
                 "leg_width": 0.22,
                 "idle_tilt": 0.01,
             }
+        # Flash every other frame while jump-invincible (timer counts down every frame at 60 FPS,
+        # so odd/even alternation gives a consistent 2-frame flicker).
+        if self.invincible_timer > 0 and (self.invincible_timer % 2 == 0):
+            return
         draw_fighter(
             screen,
             body_rect=body_rect,
