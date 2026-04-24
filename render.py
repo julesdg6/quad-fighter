@@ -15,18 +15,22 @@ MAX_ATTACK_ANTICIPATION_END = 0.9
 MAX_ATTACK_STRIKE_END = 0.95
 MIN_PHASE_DIVISOR = 0.001
 JUMP_BOB_OFFSET = 4.0
-SHOULDER_SPAN_RATIO = 0.24
-HIP_SPAN_RATIO = 0.14
+SHOULDER_SPAN_RATIO = 0.26
+HIP_SPAN_RATIO = 0.16
+WAIST_SPAN_RATIO = 0.09
+WAIST_POSITION_RATIO = 0.55   # fractional distance from shoulder_y to hip_y where waist sits
+WAIST_TILT_FACTOR = 0.64      # tilt multiplier at the waist, interpolated between shoulder (0.8) and hip (0.5)
+BELT_DROP_RATIO = 0.30        # how far the belt bottom extends from waist toward hips
 SHADOW_DEPTH_BASE_SCALE = 0.82
 SHADOW_DEPTH_SCALE_RANGE = 0.35
-JOINT_SIZE_RATIO = 0.24  # smaller dots keep joints readable without overpowering limb shapes
+JOINT_SIZE_RATIO = 0.30  # visible dots that convey joint structure without overpowering limbs
 MIN_HAND_RADIUS = 3
 HAND_SIZE_RATIO = 0.09
 MIN_FOOT_LENGTH = 7
 FOOT_LENGTH_RATIO = 0.26
 MIN_FOOT_HEIGHT = 3
 FOOT_HEIGHT_RATIO = 0.06
-NECK_WIDTH_RATIO = 0.11
+NECK_WIDTH_RATIO = 0.12
 IDLE_STANCE_DROP_RATIO = 0.035  # slight crouch depth for the fighting guard stance
 FIST_WIDTH_MULTIPLIER = 1.8  # rectangular fist wider than the old circle hand radius
 WALK_BOB_AMPLITUDE = 0.55  # extra vertical bob added during the walk cycle
@@ -223,14 +227,15 @@ def draw_fighter(
     top_y = body_rect.top
     bottom_y = body_rect.bottom
 
-    head_radius = max(6, int(width * 0.2 * palette.get("head_scale", 1.0)))
+    head_radius = max(6, int(width * 0.21 * palette.get("head_scale", 1.0)))
     shoulder_span = int(width * palette.get("shoulder_ratio", SHOULDER_SPAN_RATIO))
     hip_span = int(width * palette.get("hip_ratio", HIP_SPAN_RATIO))
+    waist_span = int(width * palette.get("waist_ratio", WAIST_SPAN_RATIO))
     torso_len = int(height * 0.3)
-    upper_arm_width = max(4, int(width * palette.get("arm_width", 0.18)))
-    lower_arm_width = max(3, int(upper_arm_width * 0.8))
-    upper_leg_width = max(5, int(width * palette.get("leg_width", 0.2)))
-    lower_leg_width = max(4, int(upper_leg_width * 0.78))
+    upper_arm_width = max(4, int(width * palette.get("arm_width", 0.20)))
+    lower_arm_width = max(3, int(upper_arm_width * 0.82))
+    upper_leg_width = max(5, int(width * palette.get("leg_width", 0.22)))
+    lower_leg_width = max(4, int(upper_leg_width * 0.80))
 
     torso_color = palette.get("torso", (170, 170, 170))
     pelvis_color = palette.get("pelvis", torso_color)
@@ -284,7 +289,7 @@ def draw_fighter(
         front_knee_extra_lift = front_lift * 0.45
         rear_knee_extra_lift = back_lift * 0.45
         # Counter-rotate shoulders against the hip/leg swing for a natural gait.
-        shoulder_counter = -walk_sin * width * 0.07
+        shoulder_counter = -walk_sin * width * 0.09
         torso_shift_x = facing * width * (0.02 + move_ratio * 0.02)
         torso_tilt = (-0.04 - walk_sin * 0.02) * facing
         stance_drop = height * 0.02
@@ -606,17 +611,26 @@ def draw_fighter(
         int(hip_y - torso_tilt * width * 0.5),
     )
 
-    torso_mid_left = _point_lerp(left_shoulder, left_hip, 0.56)
-    torso_mid_right = _point_lerp(right_shoulder, right_hip, 0.56)
+    # Waist sits ~55% down the torso, narrower than both shoulders and hips.
+    waist_y = int(shoulder_y + (hip_y - shoulder_y) * WAIST_POSITION_RATIO)
+    waist_left = (
+        int(torso_center_x - waist_span),
+        int(waist_y + torso_tilt * width * WAIST_TILT_FACTOR),
+    )
+    waist_right = (
+        int(torso_center_x + waist_span),
+        int(waist_y - torso_tilt * width * WAIST_TILT_FACTOR),
+    )
+
     chest_points = [
         left_shoulder,
         right_shoulder,
-        torso_mid_right,
-        torso_mid_left,
+        waist_right,
+        waist_left,
     ]
     pelvis_points = [
-        torso_mid_left,
-        torso_mid_right,
+        waist_left,
+        waist_right,
         right_hip,
         left_hip,
     ]
@@ -790,7 +804,7 @@ def draw_fighter(
         )
     elif pose == "walk":
         # Natural walk: arms hang at hip level and swing opposite to the legs.
-        arm_swing = walk_sin * width * (0.18 + move_ratio * 0.14)
+        arm_swing = walk_sin * width * (0.20 + move_ratio * 0.14)
         # Front arm swings backward when front leg goes forward (opposite phase).
         front_hand = (
             int(front_hip[0] - facing * arm_swing),
@@ -802,8 +816,8 @@ def draw_fighter(
             int(rear_shoulder[1] + height * 0.36),
         )
 
-    front_elbow = _joint_midpoint(front_shoulder, front_hand, height * 0.08, facing * width * 0.05)
-    rear_elbow = _joint_midpoint(rear_shoulder, rear_hand, height * 0.08, -facing * width * 0.05)
+    front_elbow = _joint_midpoint(front_shoulder, front_hand, height * 0.09, facing * width * 0.06)
+    rear_elbow = _joint_midpoint(rear_shoulder, rear_hand, height * 0.09, -facing * width * 0.06)
 
     base_foot_separation = width * 0.12
     front_foot = (
@@ -824,8 +838,8 @@ def draw_fighter(
             int(bottom_y - height * 0.18),
         )
 
-    front_knee = _joint_midpoint(front_hip, front_foot, height * 0.11 + front_knee_extra_lift, facing * width * 0.04)
-    rear_knee = _joint_midpoint(rear_hip, rear_foot, height * 0.10 + rear_knee_extra_lift, -facing * width * 0.04)
+    front_knee = _joint_midpoint(front_hip, front_foot, height * 0.13 + front_knee_extra_lift, facing * width * 0.05)
+    rear_knee = _joint_midpoint(rear_hip, rear_foot, height * 0.12 + rear_knee_extra_lift, -facing * width * 0.05)
 
     # Rear limbs (layered behind torso)
     _draw_bent_limb(
@@ -855,21 +869,20 @@ def draw_fighter(
     pygame.draw.polygon(screen, chest_color, chest_points)
     pygame.draw.polygon(screen, pelvis_color, pelvis_points)
     if belt_color is not None:
-        belt_top_left = _point_lerp(left_shoulder, left_hip, 0.56)
-        belt_top_right = _point_lerp(right_shoulder, right_hip, 0.56)
-        belt_bottom_left = _point_lerp(left_shoulder, left_hip, 0.7)
-        belt_bottom_right = _point_lerp(right_shoulder, right_hip, 0.7)
+        # Belt sits just below the waist, bridging toward the hips.
+        belt_bottom_left = _point_lerp(waist_left, left_hip, BELT_DROP_RATIO)
+        belt_bottom_right = _point_lerp(waist_right, right_hip, BELT_DROP_RATIO)
         pygame.draw.polygon(
             screen,
             belt_color,
-            [belt_top_left, belt_top_right, belt_bottom_right, belt_bottom_left],
+            [waist_left, waist_right, belt_bottom_right, belt_bottom_left],
         )
     if torso_color != chest_color:
         torso_overlay = [
             _point_lerp(left_shoulder, right_shoulder, 0.18),
             _point_lerp(left_shoulder, right_shoulder, 0.82),
-            _point_lerp(torso_mid_right, torso_mid_left, 0.82),
-            _point_lerp(torso_mid_right, torso_mid_left, 0.18),
+            _point_lerp(waist_right, waist_left, 0.82),
+            _point_lerp(waist_right, waist_left, 0.18),
         ]
         pygame.draw.polygon(screen, torso_color, torso_overlay)
 
