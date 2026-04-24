@@ -127,6 +127,7 @@ class Enemy:
         self.charge_cooldown_timer = 0
         self.hit_region = "torso"
         self.knockdown_timer = 0
+        self.grabbed = False
 
     def update(self, player, enemies=None):
         if self.hurt_flash_timer > 0:
@@ -142,6 +143,10 @@ class Enemy:
             self.attack_cooldown_timer -= 1
 
         if self.health <= 0:
+            return
+
+        # Frozen while grabbed by the player – position is controlled externally
+        if self.grabbed:
             return
 
         if self.hit_stun_timer > 0:

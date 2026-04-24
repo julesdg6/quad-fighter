@@ -2,7 +2,7 @@ import pygame
 import sys
 import os
 import math
-from player import Player
+from player import Player, GRAB_RANGE
 from enemy import Enemy, BOSS_MAX_HEALTH
 from combat import check_attack_collision, apply_knockback, get_hit_region
 from objects import EnvironmentObject
@@ -79,6 +79,9 @@ BARREL_W, BARREL_H = 54, 74
 THROW_VEL_X = 9.0
 THROW_VEL_Y = -9.0
 THROW_DAMAGE = 32
+GRAB_THROW_DAMAGE = 18        # HP lost by enemy on being thrown
+GRAB_THROW_KNOCKBACK = 110    # horizontal displacement applied via apply_knockback
+GRAB_VERTICAL_TOLERANCE = 20  # y-axis inflation of grab hitbox
 # Pickup weapon kinds that can be grabbed from the floor
 WEAPON_KINDS = {"pipe", "bat", "whip", "chain", "nunchucks"}
 WEAPON_STATS = {
@@ -224,6 +227,34 @@ while running:
         prev_player_x = player.x
         player.update()
         player_rect = player.get_rect()
+
+        # Grab attempt: find closest alive, non-boss enemy within grab range
+        if player.grab_triggered:
+            grab_rect = player.get_rect().inflate(GRAB_RANGE * 2, GRAB_VERTICAL_TOLERANCE)
+            for enemy in enemies:
+                if enemy.health <= 0 or enemy.grabbed or enemy.is_boss:
+                    continue
+                if grab_rect.colliderect(enemy.get_rect()):
+                    player.start_grab(enemy)
+                    break
+
+        # Throw: launch the grabbed enemy and apply damage
+        if player.throw_triggered and player.grabbed_enemy is not None:
+            throw_enemy = player.grabbed_enemy
+            player.release_grab()
+            throw_enemy.health = max(0, throw_enemy.health - GRAB_THROW_DAMAGE)
+            throw_enemy.vel_y = -5.5
+            throw_enemy.on_ground = False
+            throw_enemy.y -= 4
+            apply_knockback(
+                throw_enemy, player,
+                knockback_distance=GRAB_THROW_KNOCKBACK,
+                hit_region="head",
+            )
+            hit_pause_timer = HIT_PAUSE_FRAMES
+            impact_timer = IMPACT_FLASH_FRAMES
+            impact_rect = throw_enemy.get_rect().copy()
+
         for obj in environment_objects:
             if not obj.solid or obj.health <= 0:
                 continue
@@ -435,6 +466,11 @@ while running:
             player.weapon_damage_bonus = 0
             player.weapon_range_bonus = 0
             player.held_object = None
+            player.grab_timer = 0
+            player.grab_cooldown_timer = 0
+            player.grabbed_enemy = None
+            player.grab_triggered = False
+            player.throw_triggered = False
             enemies.clear()
             environment_objects.clear()
             environment_objects.extend(build_environment_objects())
@@ -520,6 +556,12 @@ while running:
         pulse_color = (230, 230, 230) if impact_timer % 2 == 0 else (200, 200, 200)
         pygame.draw.rect(screen, pulse_color, flash_rect, 2)
 
+    # Grab indicator: cyan outline around the grabbed enemy
+    if player.is_grabbing() and player.grabbed_enemy is not None:
+        ge = player.grabbed_enemy
+        grab_draw_rect = ge.get_rect().move(-camera_x, 0).inflate(6, 6)
+        pygame.draw.rect(screen, (80, 220, 220), grab_draw_rect, 2)
+
     for effect in break_effects:
         break_effect_size = (
             BREAK_EFFECT_BASE_SIZE + (BREAK_EFFECT_FRAMES - effect["timer"]) * BREAK_EFFECT_SIZE_PER_FRAME
@@ -566,6 +608,11 @@ while running:
         f"Lvl: {level_number}   {enemy_status}   Stage: {progress_pct}%   {weapon_text}"
     )
     screen.blit(font.render(hud_text, True, (220, 220, 220)), (16, 16))
+
+    # Grab status prompt
+    if player.is_grabbing():
+        grab_prompt = font.render("GRAB  [Z] THROW", True, (80, 220, 220))
+        screen.blit(grab_prompt, (WIDTH // 2 - grab_prompt.get_width() // 2, HEIGHT - 42))
 
     # Player strength / health bar
     hp_ratio = max(0.0, min(1.0, player.health / player.max_health))

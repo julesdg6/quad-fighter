@@ -16,6 +16,11 @@ AERIAL_ATTACK_HITBOX_COLOR = (64, 220, 255)
 
 AERIAL_HEAVY_FORWARD_VEL = 5.0
 
+GRAB_RANGE = 72           # max pixel distance (by rect inflation) to latch onto an enemy
+GRAB_MAX_FRAMES = 110     # frames before the enemy wriggles free
+GRAB_COOLDOWN_FRAMES = 40  # cooldown after releasing a grab
+GRAB_SNAP_GAP = 4         # gap in pixels between player and grabbed enemy
+
 ATTACK_PROFILES = {
     "primary": {
         "anticipation": 2,
@@ -140,12 +145,19 @@ class Player:
         self.aerial_attack_used = False
         self.held_object = None  # EnvironmentObject currently being carried
         self.crouching = False
+        self.grab_timer = 0
+        self.grab_cooldown_timer = 0
+        self.grabbed_enemy = None
+        self.grab_triggered = False  # single-frame signal: grab key just pressed
+        self.throw_triggered = False  # single-frame signal: throw requested this frame
+        self.prev_grab_pressed = False
 
     def update(self):
         keys = pygame.key.get_pressed()
         primary_pressed = keys[pygame.K_z]
         secondary_pressed = keys[pygame.K_x]
         crouch_key = keys[pygame.K_c]
+        grab_key = keys[pygame.K_g]
         if self.hurt_anim_timer > 0:
             self.hurt_anim_timer -= 1
         if self.hurt_flash_timer > 0:
@@ -155,6 +167,32 @@ class Player:
             # Keep character frozen in knockdown until timer expires
             self.hit_stun_timer = max(self.hit_stun_timer, 1)
             self.hurt_anim_timer = max(self.hurt_anim_timer, 1)
+        if self.grab_cooldown_timer > 0:
+            self.grab_cooldown_timer -= 1
+
+        # Grab trigger: signal for the main loop to attempt a grab this frame
+        self.grab_triggered = (
+            grab_key
+            and not self.prev_grab_pressed
+            and not self.is_grabbing()
+            and not self.is_attacking()
+            and self.on_ground
+            and not self.crouching
+            and self.hit_stun_timer <= 0
+            and self.grab_cooldown_timer <= 0
+        )
+
+        # Clear throw signal; it will be re-set below if triggered
+        self.throw_triggered = False
+
+        # Release grab if player is knocked into hit-stun
+        if self.grabbed_enemy is not None and self.hit_stun_timer > 0:
+            self.release_grab()
+
+        # Drop dead grabbed enemy (health already depleted externally)
+        if self.grabbed_enemy is not None and self.grabbed_enemy.health <= 0:
+            self.release_grab()
+
         self.vel_x = 0.0
         lane_delta = 0.0
         if self.hit_stun_timer > 0:
@@ -181,58 +219,80 @@ class Player:
                     elif keys[pygame.K_DOWN]:
                         lane_delta += self.lane_speed
 
-            if keys[pygame.K_SPACE] and self.on_ground and not self.crouching:
+            if keys[pygame.K_SPACE] and self.on_ground and not self.crouching and not self.is_grabbing():
                 self.vel_y = self.jump_power
                 self.on_ground = False
 
+            # Manage grab state while holding an enemy
+            if self.grabbed_enemy is not None:
+                self.grab_timer -= 1
+                if self.grab_timer <= 0:
+                    # Enemy wriggles free
+                    self.release_grab()
+                else:
+                    # Snap grabbed enemy to player's side
+                    if self.facing > 0:
+                        self.grabbed_enemy.x = self.x + self.width + GRAB_SNAP_GAP
+                    else:
+                        self.grabbed_enemy.x = self.x - self.grabbed_enemy.width - GRAB_SNAP_GAP
+                    self.grabbed_enemy.ground_y = self.ground_y
+                    self.grabbed_enemy.y = self.ground_y
+                    self.grabbed_enemy.on_ground = True
+                    self.grabbed_enemy.vel_x = 0.0
+                    self.grabbed_enemy.vel_y = 0.0
+                    # Throw on primary attack press
+                    if primary_pressed and not self.prev_primary_pressed:
+                        self.throw_triggered = True
+
             triggered_attack = None
-            if not self.on_ground:
-                if (
-                    secondary_pressed
-                    and not self.prev_secondary_pressed
-                    and self.attack_cooldown_timer <= 0
-                    and not self.is_attacking()
-                    and not self.aerial_attack_used
-                ):
-                    triggered_attack = "aerial_heavy"
-                elif (
-                    primary_pressed
-                    and not self.prev_primary_pressed
-                    and self.attack_cooldown_timer <= 0
-                    and not self.is_attacking()
-                    and not self.aerial_attack_used
-                ):
-                    triggered_attack = "aerial_light"
-            elif self.crouching:
-                if (
-                    secondary_pressed
-                    and not self.prev_secondary_pressed
-                    and self.attack_cooldown_timer <= 0
-                    and not self.is_attacking()
-                ):
-                    triggered_attack = "crouch_kick"
-                elif (
-                    primary_pressed
-                    and not self.prev_primary_pressed
-                    and self.attack_cooldown_timer <= 0
-                    and not self.is_attacking()
-                ):
-                    triggered_attack = "crouch_punch"
-            else:
-                if (
-                    secondary_pressed
-                    and not self.prev_secondary_pressed
-                    and self.attack_cooldown_timer <= 0
-                    and not self.is_attacking()
-                ):
-                    triggered_attack = "secondary"
-                elif (
-                    primary_pressed
-                    and not self.prev_primary_pressed
-                    and self.attack_cooldown_timer <= 0
-                    and not self.is_attacking()
-                ):
-                    triggered_attack = "primary"
+            if not self.is_grabbing():
+                if not self.on_ground:
+                    if (
+                        secondary_pressed
+                        and not self.prev_secondary_pressed
+                        and self.attack_cooldown_timer <= 0
+                        and not self.is_attacking()
+                        and not self.aerial_attack_used
+                    ):
+                        triggered_attack = "aerial_heavy"
+                    elif (
+                        primary_pressed
+                        and not self.prev_primary_pressed
+                        and self.attack_cooldown_timer <= 0
+                        and not self.is_attacking()
+                        and not self.aerial_attack_used
+                    ):
+                        triggered_attack = "aerial_light"
+                elif self.crouching:
+                    if (
+                        secondary_pressed
+                        and not self.prev_secondary_pressed
+                        and self.attack_cooldown_timer <= 0
+                        and not self.is_attacking()
+                    ):
+                        triggered_attack = "crouch_kick"
+                    elif (
+                        primary_pressed
+                        and not self.prev_primary_pressed
+                        and self.attack_cooldown_timer <= 0
+                        and not self.is_attacking()
+                    ):
+                        triggered_attack = "crouch_punch"
+                else:
+                    if (
+                        secondary_pressed
+                        and not self.prev_secondary_pressed
+                        and self.attack_cooldown_timer <= 0
+                        and not self.is_attacking()
+                    ):
+                        triggered_attack = "secondary"
+                    elif (
+                        primary_pressed
+                        and not self.prev_primary_pressed
+                        and self.attack_cooldown_timer <= 0
+                        and not self.is_attacking()
+                    ):
+                        triggered_attack = "primary"
             if triggered_attack is not None:
                 profile = ATTACK_PROFILES[triggered_attack]
                 self.current_attack_type = triggered_attack
@@ -273,6 +333,7 @@ class Player:
                         self.vel_x = self.facing * AERIAL_HEAVY_FORWARD_VEL
         self.prev_primary_pressed = primary_pressed
         self.prev_secondary_pressed = secondary_pressed
+        self.prev_grab_pressed = grab_key
 
         prev_attack_timer = self.attack_timer
         if self.attack_timer > 0:
@@ -348,6 +409,26 @@ class Player:
 
     def get_attack_knockback(self):
         return self.attack_knockback
+
+    def is_grabbing(self):
+        return self.grabbed_enemy is not None
+
+    def start_grab(self, enemy):
+        """Latch onto an enemy and begin the grab hold."""
+        self.grabbed_enemy = enemy
+        self.grab_timer = GRAB_MAX_FRAMES
+        enemy.grabbed = True
+        enemy.vel_x = 0.0
+        enemy.vel_y = 0.0
+        enemy.attack_timer = 0
+
+    def release_grab(self):
+        """Release the grabbed enemy without throwing."""
+        if self.grabbed_enemy is not None:
+            self.grabbed_enemy.grabbed = False
+            self.grabbed_enemy = None
+        self.grab_timer = 0
+        self.grab_cooldown_timer = GRAB_COOLDOWN_FRAMES
 
     def equip_weapon(self, name, hits, damage_bonus, range_bonus):
         self.weapon_name = name
