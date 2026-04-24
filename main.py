@@ -38,7 +38,7 @@ FOOD_HEAL_AMOUNT = 28
 MID_SECTION_START_X = 780
 QUAD_FIGHTER_AUTO_EXIT_FRAMES = int(os.environ.get("QUAD_FIGHTER_AUTO_EXIT_FRAMES", "0"))
 QUAD_FIGHTER_SCREENSHOT_PATH = os.environ.get("QUAD_FIGHTER_SCREENSHOT_PATH")
-SPAWN_PLAYER_AHEAD = 60
+SPAWN_OFFSCREEN_MARGIN = 60  # how far off the right screen edge a right-side enemy spawns
 SPAWN_PLAYER_SPACING = 36
 SPAWN_TRIGGER_OFFSET = 420
 SPAWN_TRIGGER_SPACING = 28
@@ -170,7 +170,7 @@ def break_object(obj, environment_objects, break_effects):
         environment_objects.remove(obj)
 
 
-def spawn_enemies(player_x, zone):
+def spawn_enemies(player_x, zone, camera_x=0):
     trigger_x = zone["trigger_x"]
     count = zone["count"]
     variants = zone.get("variants") or ["raider"]
@@ -182,15 +182,18 @@ def spawn_enemies(player_x, zone):
         # Alternate spawning left/right of the player so enemies surround from both sides.
         # i == 0 → right, i == 1 → left, i == 2 → right, i == 3 → left …
         if i % 2 == 0:
-            spawn_x = max(
-                player_x + WIDTH + SPAWN_PLAYER_AHEAD + right_index * SPAWN_PLAYER_SPACING,
-                trigger_x + SPAWN_TRIGGER_OFFSET + right_index * SPAWN_TRIGGER_SPACING,
-            )
+            # Spawn just off the right edge of the current screen view so enemies
+            # are visible almost immediately and the player fights a group, not a queue.
+            screen_right = camera_x + WIDTH
+            spawn_x = screen_right + SPAWN_OFFSCREEN_MARGIN + right_index * SPAWN_PLAYER_SPACING
+            spawn_x = max(spawn_x, trigger_x + SPAWN_TRIGGER_OFFSET + right_index * SPAWN_TRIGGER_SPACING)
             spawn_x = min(WORLD_WIDTH - SPAWN_WORLD_RIGHT_PADDING, spawn_x)
             right_index += 1
+            approach_side = 1
         else:
             spawn_x = max(0, player_x - SPAWN_LEFT_OFFSET - left_index * SPAWN_LEFT_SPACING)
             left_index += 1
+            approach_side = -1
         enemy = Enemy(spawn_x, DEFAULT_ENEMY_GROUND_Y, WORLD_WIDTH, HEIGHT, variant=variants[variant_index])
         enemy.ground_y = max(
             LANE_TOP,
@@ -200,6 +203,8 @@ def spawn_enemies(player_x, zone):
             ),
         )
         enemy.y = enemy.ground_y
+        # Keep each enemy on its natural flank (left or right of player).
+        enemy.approach_side = approach_side
         # Stagger attack cooldowns so enemies in a group don't all attack simultaneously.
         enemy.attack_cooldown_timer = i * ENEMY_ATTACK_STAGGER_FRAMES
         spawned.append(enemy)
@@ -275,7 +280,7 @@ while running:
 
         while spawn_cursor < len(enemy_spawn_zones) and player.x >= enemy_spawn_zones[spawn_cursor]["trigger_x"]:
             zone = enemy_spawn_zones[spawn_cursor]
-            new_enemies = spawn_enemies(player.x, zone)
+            new_enemies = spawn_enemies(player.x, zone, camera_x)
             # Lock the camera for zones that mark a combat encounter
             if zone.get("lock_camera") and camera_lock_right is None:
                 lock_zone_enemies = list(new_enemies)
