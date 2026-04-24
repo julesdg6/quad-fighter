@@ -1,6 +1,7 @@
 import pygame
 from render import draw_fighter, get_depth_scale
 from combat import KNOCKDOWN_STUN_FRAMES, HIT_STUN_FRAMES as HURT_ANIM_FRAMES
+from theme import build_palette
 
 SHADOW_BASE_SCALE = 1.0
 SHADOW_MAX_REDUCTION = 0.5
@@ -492,7 +493,7 @@ class Player:
             self.weapon_damage_bonus = 0
             self.weapon_range_bonus = 0
 
-    def draw(self, screen, camera_x=0):
+    def draw(self, screen, camera_x=0, theme=None):
         draw_x = self.x - camera_x
         shadow_scale = SHADOW_BASE_SCALE - min(
             SHADOW_MAX_REDUCTION,
@@ -561,26 +562,26 @@ class Player:
         attack_strike_end = (
             self.attack_anticipation_frames + self.attack_strike_frames
         ) / self.attack_duration_frames
-        draw_fighter(
-            screen,
-            body_rect=body_rect,
-            facing=self.facing,
-            palette={
-                "chest": (236, 236, 240) if self.hurt_flash_timer <= 0 else (248, 212, 212),
-                "torso": (248, 248, 252) if self.hurt_flash_timer <= 0 else (255, 220, 220),
-                "pelvis": (238, 238, 242) if self.hurt_flash_timer <= 0 else (246, 206, 206),
+        if theme is not None:
+            palette = build_palette(theme, "player", hurt=self.hurt_flash_timer > 0)
+        else:
+            hurt_flash = self.hurt_flash_timer > 0
+            palette = {
+                "chest": (236, 236, 240) if not hurt_flash else (248, 212, 212),
+                "torso": (248, 248, 252) if not hurt_flash else (255, 220, 220),
+                "pelvis": (238, 238, 242) if not hurt_flash else (246, 206, 206),
                 "belt": (28, 28, 30),
-                "head": (216, 196, 172) if self.hurt_flash_timer <= 0 else (238, 210, 188),
+                "head": (216, 196, 172) if not hurt_flash else (238, 210, 188),
                 "face": (188, 168, 145),
                 "hair": (28, 24, 20),
-                "front_arm_upper": (248, 248, 252) if self.hurt_flash_timer <= 0 else (255, 222, 222),
-                "front_arm_lower": (242, 242, 246) if self.hurt_flash_timer <= 0 else (250, 214, 214),
-                "rear_arm_upper": (232, 232, 238) if self.hurt_flash_timer <= 0 else (244, 206, 206),
-                "rear_arm_lower": (228, 228, 234) if self.hurt_flash_timer <= 0 else (240, 198, 198),
-                "front_leg_upper": (246, 246, 250) if self.hurt_flash_timer <= 0 else (252, 220, 220),
-                "front_leg_lower": (240, 240, 246) if self.hurt_flash_timer <= 0 else (248, 214, 214),
-                "rear_leg_upper": (228, 228, 234) if self.hurt_flash_timer <= 0 else (240, 202, 202),
-                "rear_leg_lower": (222, 222, 228) if self.hurt_flash_timer <= 0 else (236, 196, 196),
+                "front_arm_upper": (248, 248, 252) if not hurt_flash else (255, 222, 222),
+                "front_arm_lower": (242, 242, 246) if not hurt_flash else (250, 214, 214),
+                "rear_arm_upper": (232, 232, 238) if not hurt_flash else (244, 206, 206),
+                "rear_arm_lower": (228, 228, 234) if not hurt_flash else (240, 198, 198),
+                "front_leg_upper": (246, 246, 250) if not hurt_flash else (252, 220, 220),
+                "front_leg_lower": (240, 240, 246) if not hurt_flash else (248, 214, 214),
+                "rear_leg_upper": (228, 228, 234) if not hurt_flash else (240, 202, 202),
+                "rear_leg_lower": (222, 222, 228) if not hurt_flash else (236, 196, 196),
                 "hands": (212, 190, 162),
                 "feet": (202, 180, 154),
                 "head_scale": 0.93,
@@ -589,7 +590,12 @@ class Player:
                 "arm_width": 0.19,
                 "leg_width": 0.22,
                 "idle_tilt": 0.01,
-            },
+            }
+        draw_fighter(
+            screen,
+            body_rect=body_rect,
+            facing=self.facing,
+            palette=palette,
             pose=pose,
             move_ratio=move_ratio,
             attack_ratio=attack_ratio,

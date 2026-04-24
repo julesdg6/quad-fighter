@@ -1,6 +1,7 @@
 import pygame
 from render import draw_fighter, get_depth_scale
 from combat import KNOCKDOWN_STUN_FRAMES
+from theme import build_palette
 
 LANE_CHASE_THRESHOLD = 4
 LANE_CHASE_SPEED = 1.5
@@ -292,7 +293,7 @@ class Enemy:
         elapsed = self.attack_duration_frames - self.attack_timer
         return elapsed < self.attack_anticipation_frames
 
-    def draw(self, screen, camera_x=0):
+    def draw(self, screen, camera_x=0, theme=None):
         draw_x = self.x - camera_x
         shadow_scale = SHADOW_BASE_SCALE - min(
             SHADOW_MAX_REDUCTION,
@@ -341,7 +342,10 @@ class Enemy:
         attack_strike_end = (
             self.attack_anticipation_frames + self.attack_strike_frames
         ) / self.attack_duration_frames
-        if self.is_boss:
+        if theme is not None:
+            variant = "boss" if self.is_boss else self.variant
+            palette = build_palette(theme, variant, hurt=hurt_flash)
+        elif self.is_boss:
             palette = {
                 "chest": (128, 54, 48) if not hurt_flash else (210, 126, 120),
                 "torso": (58, 58, 62) if not hurt_flash else (204, 204, 210),
@@ -366,59 +370,58 @@ class Enemy:
                 "idle_tilt": -0.08,
                 "idle_shift": 0.04,
             }
+        elif self.variant == "brawler":
+            palette = {
+                "chest": (72, 72, 46) if not hurt_flash else (186, 186, 126),
+                "torso": (48, 54, 52) if not hurt_flash else (180, 192, 186),
+                "pelvis": (84, 74, 44) if not hurt_flash else (206, 182, 132),
+                "head": (176, 146, 118) if not hurt_flash else (234, 214, 196),
+                "face": (130, 104, 84),
+                "hair": (34, 32, 24),
+                "front_arm_upper": (84, 86, 62) if not hurt_flash else (198, 204, 170),
+                "front_arm_lower": (118, 88, 66) if not hurt_flash else (206, 182, 166),
+                "rear_arm_upper": (70, 72, 52) if not hurt_flash else (184, 188, 160),
+                "rear_arm_lower": (106, 78, 60) if not hurt_flash else (194, 172, 154),
+                "front_leg_upper": (88, 80, 46) if not hurt_flash else (212, 194, 132),
+                "front_leg_lower": (70, 64, 38) if not hurt_flash else (196, 178, 124),
+                "rear_leg_upper": (78, 70, 40) if not hurt_flash else (198, 182, 128),
+                "rear_leg_lower": (62, 56, 34) if not hurt_flash else (184, 170, 120),
+                "hands": (172, 138, 112),
+                "feet": (50, 48, 42),
+                "head_scale": 0.88,
+                "shoulder_ratio": 0.33,
+                "hip_ratio": 0.15,
+                "arm_width": 0.24,
+                "leg_width": 0.24,
+                "idle_tilt": -0.04,
+                "idle_shift": 0.02,
+            }
         else:
-            if self.variant == "brawler":
-                palette = {
-                    "chest": (72, 72, 46) if not hurt_flash else (186, 186, 126),
-                    "torso": (48, 54, 52) if not hurt_flash else (180, 192, 186),
-                    "pelvis": (84, 74, 44) if not hurt_flash else (206, 182, 132),
-                    "head": (176, 146, 118) if not hurt_flash else (234, 214, 196),
-                    "face": (130, 104, 84),
-                    "hair": (34, 32, 24),
-                    "front_arm_upper": (84, 86, 62) if not hurt_flash else (198, 204, 170),
-                    "front_arm_lower": (118, 88, 66) if not hurt_flash else (206, 182, 166),
-                    "rear_arm_upper": (70, 72, 52) if not hurt_flash else (184, 188, 160),
-                    "rear_arm_lower": (106, 78, 60) if not hurt_flash else (194, 172, 154),
-                    "front_leg_upper": (88, 80, 46) if not hurt_flash else (212, 194, 132),
-                    "front_leg_lower": (70, 64, 38) if not hurt_flash else (196, 178, 124),
-                    "rear_leg_upper": (78, 70, 40) if not hurt_flash else (198, 182, 128),
-                    "rear_leg_lower": (62, 56, 34) if not hurt_flash else (184, 170, 120),
-                    "hands": (172, 138, 112),
-                    "feet": (50, 48, 42),
-                    "head_scale": 0.88,
-                    "shoulder_ratio": 0.33,
-                    "hip_ratio": 0.15,
-                    "arm_width": 0.24,
-                    "leg_width": 0.24,
-                    "idle_tilt": -0.04,
-                    "idle_shift": 0.02,
-                }
-            else:
-                palette = {
-                    "chest": (88, 44, 38) if not hurt_flash else (180, 126, 120),
-                    "torso": (52, 52, 56) if not hurt_flash else (186, 186, 192),
-                    "pelvis": (44, 56, 88) if not hurt_flash else (146, 162, 200),
-                    "head": (170, 138, 112) if not hurt_flash else (224, 208, 188),
-                    "face": (126, 100, 82),
-                    "hair": (24, 24, 24),
-                    "front_arm_upper": (58, 58, 62) if not hurt_flash else (196, 196, 202),
-                    "front_arm_lower": (102, 70, 62) if not hurt_flash else (196, 170, 162),
-                    "rear_arm_upper": (44, 44, 48) if not hurt_flash else (182, 182, 188),
-                    "rear_arm_lower": (90, 62, 56) if not hurt_flash else (184, 160, 152),
-                    "front_leg_upper": (50, 66, 104) if not hurt_flash else (158, 176, 214),
-                    "front_leg_lower": (38, 50, 84) if not hurt_flash else (148, 166, 202),
-                    "rear_leg_upper": (36, 48, 76) if not hurt_flash else (140, 158, 192),
-                    "rear_leg_lower": (30, 38, 62) if not hurt_flash else (130, 148, 184),
-                    "hands": (168, 134, 108),
-                    "feet": (44, 44, 48),
-                    "head_scale": 0.9,
-                    "shoulder_ratio": 0.29,
-                    "hip_ratio": 0.13,
-                    "arm_width": 0.21,
-                    "leg_width": 0.2,
-                    "idle_tilt": -0.06,
-                    "idle_shift": 0.03,
-                }
+            palette = {
+                "chest": (88, 44, 38) if not hurt_flash else (180, 126, 120),
+                "torso": (52, 52, 56) if not hurt_flash else (186, 186, 192),
+                "pelvis": (44, 56, 88) if not hurt_flash else (146, 162, 200),
+                "head": (170, 138, 112) if not hurt_flash else (224, 208, 188),
+                "face": (126, 100, 82),
+                "hair": (24, 24, 24),
+                "front_arm_upper": (58, 58, 62) if not hurt_flash else (196, 196, 202),
+                "front_arm_lower": (102, 70, 62) if not hurt_flash else (196, 170, 162),
+                "rear_arm_upper": (44, 44, 48) if not hurt_flash else (182, 182, 188),
+                "rear_arm_lower": (90, 62, 56) if not hurt_flash else (184, 160, 152),
+                "front_leg_upper": (50, 66, 104) if not hurt_flash else (158, 176, 214),
+                "front_leg_lower": (38, 50, 84) if not hurt_flash else (148, 166, 202),
+                "rear_leg_upper": (36, 48, 76) if not hurt_flash else (140, 158, 192),
+                "rear_leg_lower": (30, 38, 62) if not hurt_flash else (130, 148, 184),
+                "hands": (168, 134, 108),
+                "feet": (44, 44, 48),
+                "head_scale": 0.9,
+                "shoulder_ratio": 0.29,
+                "hip_ratio": 0.13,
+                "arm_width": 0.21,
+                "leg_width": 0.2,
+                "idle_tilt": -0.06,
+                "idle_shift": 0.03,
+            }
         draw_fighter(
             screen,
             body_rect=body_rect,

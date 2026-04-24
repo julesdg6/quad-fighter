@@ -69,13 +69,13 @@ def _dim(color, amount=14):
 
 # ── Generators ────────────────────────────────────────────────────────────────
 
-def _gen_far_buildings(rng, world_w):
+def _gen_far_buildings(rng, world_w, far_bldg_colors=_FAR_BLDG):
     bldgs = []
     x = -60
     while x < world_w + 200:
         w = rng.randint(60, 150)
         h = rng.randint(50, 115)
-        color = _pick(rng, _FAR_BLDG)
+        color = _pick(rng, far_bldg_colors)
         cols = max(1, w // 18)
         rows = max(1, (h - 15) // 20)
         windows = [
@@ -88,16 +88,17 @@ def _gen_far_buildings(rng, world_w):
     return bldgs
 
 
-def _gen_mid_buildings(rng, world_w):
+def _gen_mid_buildings(rng, world_w, mid_bldg_colors=_MID_BLDG,
+                       accent_colors=_ACCENT, awning_colors=_AWNING):
     bldgs = []
     x = -30
     while x < world_w + 150:
         w = rng.randint(48, 115)
         h = rng.randint(75, 165)
-        color = _pick(rng, _MID_BLDG)
-        accent = _pick(rng, _ACCENT)
+        color = _pick(rng, mid_bldg_colors)
+        accent = _pick(rng, accent_colors)
         has_shop = rng.random() < SHOP_PROBABILITY
-        awning = _pick(rng, _AWNING) if has_shop else None
+        awning = _pick(rng, awning_colors) if has_shop else None
         cols = max(1, (w - 16) // 22)
         rows = max(1, (h - 32) // 26)
         windows = [
@@ -124,23 +125,23 @@ def _gen_lamps(rng, world_w):
     return lamps
 
 
-def _gen_vehicles(rng, world_w):
+def _gen_vehicles(rng, world_w, vehicle_colors=_VEHICLE):
     vehs = []
     x = 400
     while x < world_w - 100:
         kind = "car" if rng.random() < CAR_PROBABILITY else "motorbike"
-        color = _pick(rng, _VEHICLE)
+        color = _pick(rng, vehicle_colors)
         facing = 1 if rng.random() < 0.5 else -1
         vehs.append({"x": float(x), "kind": kind, "color": color, "facing": facing})
         x += rng.randint(280, 560)
     return vehs
 
 
-def _gen_bg_chars(rng, world_w):
+def _gen_bg_chars(rng, world_w, bgchar_colors=_BGCHAR):
     chars = []
     x = 300
     while x < world_w - 50:
-        color = _pick(rng, _BGCHAR)
+        color = _pick(rng, bgchar_colors)
         facing = 1 if rng.random() < 0.5 else -1
         phase = rng.uniform(0.0, math.pi * 2)
         chars.append({"x": float(x), "color": color, "facing": facing, "phase": phase})
@@ -150,37 +151,48 @@ def _gen_bg_chars(rng, world_w):
 
 # ── Public: generate ──────────────────────────────────────────────────────────
 
-def generate_background(world_w, lane_top, seed=42):
+def generate_background(world_w, lane_top, seed=42, theme=None):
     """
     Generate all background data.
     Call once per level; pass the result to the draw functions each frame.
+    *theme* is an optional theme dict (from theme.py); when provided the
+    procedurally generated colours (buildings, vehicles, bgchars) are drawn
+    from the theme's colour pools instead of the module defaults.
     """
     rng = random.Random(seed)
+    far_bldg  = theme["far_bldg"]  if theme else _FAR_BLDG
+    mid_bldg  = theme["mid_bldg"]  if theme else _MID_BLDG
+    accent    = theme["accent"]    if theme else _ACCENT
+    awning    = theme["awning"]    if theme else _AWNING
+    vehicle   = theme["vehicle"]   if theme else _VEHICLE
+    bgchar    = theme["bgchar"]    if theme else _BGCHAR
     return {
-        "far":   _gen_far_buildings(rng, world_w),
-        "mid":   _gen_mid_buildings(rng, world_w),
+        "far":   _gen_far_buildings(rng, world_w, far_bldg),
+        "mid":   _gen_mid_buildings(rng, world_w, mid_bldg, accent, awning),
         "lamps": _gen_lamps(rng, world_w),
-        "vehs":  _gen_vehicles(rng, world_w),
-        "chars": _gen_bg_chars(rng, world_w),
+        "vehs":  _gen_vehicles(rng, world_w, vehicle),
+        "chars": _gen_bg_chars(rng, world_w, bgchar),
+        "theme": theme,
     }
 
 
 # ── Draw helpers ──────────────────────────────────────────────────────────────
 
-def _draw_sky(screen, width, lane_top):
+def _draw_sky(screen, width, lane_top, sky_top=_SKY_TOP, sky_horiz=_SKY_HORIZ):
     """Vertical gradient sky filling the area above the gameplay lane."""
     bands = 8
     for i in range(bands):
         t = (i + 0.5) / bands
-        r = int(_SKY_TOP[0] + (_SKY_HORIZ[0] - _SKY_TOP[0]) * t)
-        g = int(_SKY_TOP[1] + (_SKY_HORIZ[1] - _SKY_TOP[1]) * t)
-        b = int(_SKY_TOP[2] + (_SKY_HORIZ[2] - _SKY_TOP[2]) * t)
+        r = int(sky_top[0] + (sky_horiz[0] - sky_top[0]) * t)
+        g = int(sky_top[1] + (sky_horiz[1] - sky_top[1]) * t)
+        b = int(sky_top[2] + (sky_horiz[2] - sky_top[2]) * t)
         band_y = int(i * lane_top / bands)
         band_h = int((i + 1) * lane_top / bands) - band_y + 1
         pygame.draw.rect(screen, (r, g, b), (0, band_y, width, band_h))
 
 
-def _draw_far_layer(screen, camera_x, bldgs, screen_w, lane_top):
+def _draw_far_layer(screen, camera_x, bldgs, screen_w, lane_top,
+                    win_lit=_WIN_LIT, win_dim=_WIN_DIM):
     off = int(camera_x * FAR_PARALLAX)
     for b in bldgs:
         sx = int(b["x"]) - off
@@ -189,11 +201,12 @@ def _draw_far_layer(screen, camera_x, bldgs, screen_w, lane_top):
         sy = lane_top - b["h"]
         pygame.draw.rect(screen, b["color"], (sx, sy, b["w"], b["h"]))
         for (rx, ry, lit) in b["windows"]:
-            pygame.draw.rect(screen, _WIN_LIT if lit else _WIN_DIM,
+            pygame.draw.rect(screen, win_lit if lit else win_dim,
                              (sx + rx, sy + ry, 5, 4))
 
 
-def _draw_mid_layer(screen, camera_x, bldgs, screen_w, lane_top):
+def _draw_mid_layer(screen, camera_x, bldgs, screen_w, lane_top,
+                    win_lit=_WIN_LIT, win_dim=_WIN_DIM):
     off = int(camera_x * MID_PARALLAX)
     for b in bldgs:
         sx = int(b["x"]) - off
@@ -204,7 +217,7 @@ def _draw_mid_layer(screen, camera_x, bldgs, screen_w, lane_top):
         pygame.draw.rect(screen, b["color"], rect)
         pygame.draw.rect(screen, _dim(b["color"]), rect, 1)
         for (rx, ry, lit) in b["windows"]:
-            pygame.draw.rect(screen, _WIN_LIT if lit else _WIN_DIM,
+            pygame.draw.rect(screen, win_lit if lit else win_dim,
                              (sx + rx, sy + ry, 8, 7))
         if b["has_shop"]:
             sh = max(18, min(35, b["h"] // 3))
@@ -218,13 +231,14 @@ def _draw_mid_layer(screen, camera_x, bldgs, screen_w, lane_top):
                     pygame.draw.rect(screen, stripe, (aw.x + i, aw.y, 8, aw.h))
 
 
-def _draw_lamp(screen, sx, lane_top, lane_bottom):
+def _draw_lamp(screen, sx, lane_top, lane_bottom,
+               lamp_col=_LAMP_COL, lamp_glo=_LAMP_GLO, lamp_inner=(228, 212, 130)):
     """Draw a single street lamp post with arm and glowing head."""
-    pygame.draw.line(screen, _LAMP_COL, (sx, lane_bottom), (sx, lane_top - 22), 3)
+    pygame.draw.line(screen, lamp_col, (sx, lane_bottom), (sx, lane_top - 22), 3)
     arm_x = sx + 20
-    pygame.draw.line(screen, _LAMP_COL, (sx, lane_top - 22), (arm_x, lane_top - 22), 2)
-    pygame.draw.circle(screen, _LAMP_GLO, (arm_x, lane_top - 22), 5)
-    pygame.draw.circle(screen, (228, 212, 130), (arm_x, lane_top - 22), 3)
+    pygame.draw.line(screen, lamp_col, (sx, lane_top - 22), (arm_x, lane_top - 22), 2)
+    pygame.draw.circle(screen, lamp_glo, (arm_x, lane_top - 22), 5)
+    pygame.draw.circle(screen, lamp_inner, (arm_x, lane_top - 22), 3)
 
 
 def _draw_car(screen, sx, base_y, color):
@@ -276,9 +290,14 @@ def draw_background_pre_lane(screen, camera_x, bg_data, width, height, lane_top)
     Draw sky gradient and far/mid building layers.
     Call this before drawing the lane floor bands so buildings appear behind the lane.
     """
-    _draw_sky(screen, width, lane_top)
-    _draw_far_layer(screen, camera_x, bg_data["far"], width, lane_top)
-    _draw_mid_layer(screen, camera_x, bg_data["mid"], width, lane_top)
+    theme = bg_data.get("theme")
+    sky_top   = theme["sky_top"]   if theme else _SKY_TOP
+    sky_horiz = theme["sky_horiz"] if theme else _SKY_HORIZ
+    win_lit   = theme["win_lit"]   if theme else _WIN_LIT
+    win_dim   = theme["win_dim"]   if theme else _WIN_DIM
+    _draw_sky(screen, width, lane_top, sky_top, sky_horiz)
+    _draw_far_layer(screen, camera_x, bg_data["far"], width, lane_top, win_lit, win_dim)
+    _draw_mid_layer(screen, camera_x, bg_data["mid"], width, lane_top, win_lit, win_dim)
 
 
 def draw_background_post_lane(screen, camera_x, frame_count, bg_data,
@@ -288,13 +307,18 @@ def draw_background_post_lane(screen, camera_x, frame_count, bg_data,
     Call after the lane floor bands, before gameplay entities, so near-background
     elements appear behind the player and enemies but in front of the buildings.
     """
+    theme = bg_data.get("theme")
+    lamp_col   = theme["lamp_col"]   if theme else _LAMP_COL
+    lamp_glo   = theme["lamp_glo"]   if theme else _LAMP_GLO
+    lamp_inner = theme["lamp_inner"] if theme else (228, 212, 130)
+
     off = int(camera_x * NEAR_PARALLAX)
     t = frame_count / 60.0
 
     for lamp in bg_data["lamps"]:
         sx = int(lamp["x"]) - off
         if not _cull(sx, 30, width):
-            _draw_lamp(screen, sx, lane_top, lane_bottom)
+            _draw_lamp(screen, sx, lane_top, lane_bottom, lamp_col, lamp_glo, lamp_inner)
 
     # Vehicles are parked at the back of the scene, base just at the horizon line.
     veh_y = lane_top
