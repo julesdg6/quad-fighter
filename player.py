@@ -458,7 +458,7 @@ class Player:
                 "feet": (202, 180, 154),
                 "head_scale": 0.93,
                 "shoulder_ratio": 0.26,
-                "hip_ratio": 0.2,
+                "hip_ratio": 0.14,
                 "arm_width": 0.19,
                 "leg_width": 0.22,
                 "idle_tilt": 0.01,
