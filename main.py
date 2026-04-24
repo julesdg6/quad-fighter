@@ -58,6 +58,10 @@ ENEMY_SPAWN_LANE_OFFSETS = (-28, 0, 30, -14, 18)
 SPAWN_LEFT_OFFSET = 300   # how far to the left of the player a left-side enemy spawns
 SPAWN_LEFT_SPACING = 40   # extra spacing between left-side enemies in a group
 ENEMY_ATTACK_STAGGER_FRAMES = 22  # per-enemy stagger offset so groups don't all attack at once
+CAMERA_LOCK_PADDING = 80           # extra world-pixels beyond current right edge when locking
+CAMERA_LOCK_RIGHT_MARGIN = 28      # keep player this far (px) from locked right screen edge
+CAMERA_LOCK_BAR_WIDTH = 6          # width of the on-screen indicator drawn on right edge when locked
+CAMERA_LOCK_BAR_COLOR = (100, 32, 32)  # dark-red indicator colour
 PIPE_WEAPON_HITS = 6
 PIPE_WEAPON_DAMAGE_BONUS = 8
 PIPE_WEAPON_RANGE_BONUS = 20
@@ -117,13 +121,15 @@ level_transition_timer = 0
 just_advanced_level = False
 
 enemy_spawn_zones = [
-    {"trigger_x": 260,  "count": 2, "variants": ["raider", "raider"]},
-    {"trigger_x": 760,  "count": 3, "variants": ["raider", "brawler", "raider"]},
+    {"trigger_x": 260,  "count": 2, "variants": ["raider", "raider"],                         "lock_camera": True},
+    {"trigger_x": 760,  "count": 3, "variants": ["raider", "brawler", "raider"],               "lock_camera": True},
     {"trigger_x": 1280, "count": 2, "variants": ["brawler", "raider"]},
-    {"trigger_x": 1800, "count": 4, "variants": ["raider", "brawler", "raider", "brawler"]},
-    {"trigger_x": 2360, "count": 3, "variants": ["brawler", "raider", "brawler"]},
+    {"trigger_x": 1800, "count": 4, "variants": ["raider", "brawler", "raider", "brawler"],    "lock_camera": True},
+    {"trigger_x": 2360, "count": 3, "variants": ["brawler", "raider", "brawler"],              "lock_camera": True},
 ]
 enemies = []
+lock_zone_enemies = []   # enemies from the current locked zone; cleared when all are defeated
+camera_lock_right = None  # world-x of the maximum camera right-edge while a zone is locked
 
 
 def build_environment_objects():
@@ -238,7 +244,12 @@ while running:
 
         while spawn_cursor < len(enemy_spawn_zones) and player.x >= enemy_spawn_zones[spawn_cursor]["trigger_x"]:
             zone = enemy_spawn_zones[spawn_cursor]
-            enemies.extend(spawn_enemies(player.x, zone))
+            new_enemies = spawn_enemies(player.x, zone)
+            # Lock the camera for zones that mark a combat encounter
+            if zone.get("lock_camera") and camera_lock_right is None:
+                lock_zone_enemies = list(new_enemies)
+                camera_lock_right = camera_x + WIDTH + CAMERA_LOCK_PADDING
+            enemies.extend(new_enemies)
             spawn_cursor += 1
 
         for enemy in enemies:
@@ -387,6 +398,12 @@ while running:
     if boss_spawned and not boss_defeated and not any(enemy.is_boss for enemy in enemies):
         boss_defeated = True
 
+    # Unlock the camera once all enemies from the locked zone are defeated
+    if camera_lock_right is not None and lock_zone_enemies:
+        if not any(e in lock_zone_enemies for e in enemies):
+            camera_lock_right = None
+            lock_zone_enemies = []
+
     for effect in list(break_effects):
         effect["timer"] -= 1
         if effect["timer"] <= 0:
@@ -401,9 +418,12 @@ while running:
         camera_target = focus_x - WIDTH * 0.5
     else:
         camera_target = player.x + player.width / 2 - WIDTH * CAMERA_FOLLOW_RATIO
-    camera_x = max(0, min(int(camera_target), WORLD_WIDTH - WIDTH))
+    max_camera_x = (camera_lock_right - WIDTH) if camera_lock_right is not None else (WORLD_WIDTH - WIDTH)
+    camera_x = max(0, min(int(camera_target), max_camera_x))
     if player.x < camera_x + 12:
         player.x = camera_x + 12
+    if camera_lock_right is not None:
+        player.x = min(player.x, camera_lock_right - player.width - CAMERA_LOCK_RIGHT_MARGIN)
 
     stage_complete = (
         boss_spawned
@@ -444,6 +464,8 @@ while running:
             boss_spawned = False
             boss_defeated = False
             boss_intro_timer = 0
+            lock_zone_enemies = []
+            camera_lock_right = None
             section_name = f"level_{level_number}_start"
             section_message = f"LEVEL {level_number}"
             section_message_timer = 120
@@ -540,6 +562,16 @@ while running:
             (fx + break_effect_size, fy - break_effect_size),
             2,
         )
+
+    # Camera-lock boundary indicator: dark-red bar on the right screen edge
+    if camera_lock_right is not None:
+        lock_screen_x = camera_lock_right - camera_x - CAMERA_LOCK_BAR_WIDTH
+        if 0 <= lock_screen_x < WIDTH:
+            pygame.draw.rect(
+                screen,
+                CAMERA_LOCK_BAR_COLOR,
+                (lock_screen_x, LANE_TOP, CAMERA_LOCK_BAR_WIDTH, LANE_BOTTOM - LANE_TOP),
+            )
 
     regular_enemy_count = len([enemy for enemy in enemies if not enemy.is_boss])
     if boss_enemy is not None:
