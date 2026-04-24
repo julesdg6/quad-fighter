@@ -18,6 +18,11 @@ SECONDARY_ATTACK_HITBOX_COLOR = (255, 150, 64)
 AERIAL_ATTACK_HITBOX_COLOR = (64, 220, 255)
 
 AERIAL_HEAVY_FORWARD_VEL = 5.0
+DASH_PUNCH_VEL = 6.5  # forward velocity applied during dash_punch strike
+
+# Special moves triggered by simultaneous button combinations
+SPECIAL_MOVES = ("spin_attack", "dash_punch", "dive_kick")
+SPECIAL_ATTACK_HITBOX_COLOR = (200, 64, 255)  # purple
 
 # Invincibility frames granted at the moment the player leaves the ground (jump).
 # Classic beat-em-up escape: tapping jump gives a brief window to pass through attacks.
@@ -120,6 +125,46 @@ ATTACK_PROFILES = {
         "attack_height": 56,
         "attack_offset": 10,
         "knockback": 80,
+    },
+    # ── Special moves ────────────────────────────────────────────────────────
+    # Spin Attack  (punch + kick simultaneously on ground)
+    # Wide AoE that hits both sides of the player.
+    "spin_attack": {
+        "anticipation": 5,
+        "strike": 8,
+        "recovery": 10,
+        "cooldown": 45,
+        "damage": 28,
+        "attack_width": 120,
+        "attack_height": 80,
+        "attack_offset": 0,
+        "knockback": 90,
+    },
+    # Dash Punch  (forward direction + punch while running at full speed)
+    # Quick lunge that propels the player forward through the strike.
+    "dash_punch": {
+        "anticipation": 2,
+        "strike": 4,
+        "recovery": 6,
+        "cooldown": 28,
+        "damage": 22,
+        "attack_width": 88,
+        "attack_height": 52,
+        "attack_offset": 12,
+        "knockback": 82,
+    },
+    # Dive Kick  (down + kick while airborne)
+    # Powerful downward aerial kick; counts as an aerial attack.
+    "dive_kick": {
+        "anticipation": 3,
+        "strike": 5,
+        "recovery": 8,
+        "cooldown": 32,
+        "damage": 26,
+        "attack_width": 68,
+        "attack_height": 60,
+        "attack_offset": 8,
+        "knockback": 86,
     },
 }
 
@@ -311,20 +356,28 @@ class Player:
             triggered_attack = None
             if not self.is_grabbing():
                 if not self.on_ground:
-                    if (
-                        secondary_pressed
-                        and not self.prev_secondary_pressed
-                        and self.attack_cooldown_timer <= 0
+                    can_aerial = (
+                        self.attack_cooldown_timer <= 0
                         and not self.is_attacking()
                         and not self.aerial_attack_used
+                    )
+                    if (
+                        _key("move_down", pygame.K_DOWN)
+                        and secondary_pressed
+                        and not self.prev_secondary_pressed
+                        and can_aerial
+                    ):
+                        triggered_attack = "dive_kick"
+                    elif (
+                        secondary_pressed
+                        and not self.prev_secondary_pressed
+                        and can_aerial
                     ):
                         triggered_attack = "aerial_heavy"
                     elif (
                         primary_pressed
                         and not self.prev_primary_pressed
-                        and self.attack_cooldown_timer <= 0
-                        and not self.is_attacking()
-                        and not self.aerial_attack_used
+                        and can_aerial
                     ):
                         triggered_attack = "aerial_light"
                 elif self.crouching:
@@ -343,7 +396,27 @@ class Player:
                     ):
                         triggered_attack = "crouch_punch"
                 else:
+                    # Special: Spin Attack (punch + kick pressed simultaneously)
                     if (
+                        primary_pressed
+                        and secondary_pressed
+                        and not self.prev_primary_pressed
+                        and not self.prev_secondary_pressed
+                        and self.attack_cooldown_timer <= 0
+                        and not self.is_attacking()
+                    ):
+                        triggered_attack = "spin_attack"
+                    # Special: Dash Punch (punch while running forward at full speed)
+                    elif (
+                        primary_pressed
+                        and not self.prev_primary_pressed
+                        and abs(self.vel_x) >= self.speed * 0.9
+                        and ((self.vel_x > 0 and self.facing > 0) or (self.vel_x < 0 and self.facing < 0))
+                        and self.attack_cooldown_timer <= 0
+                        and not self.is_attacking()
+                    ):
+                        triggered_attack = "dash_punch"
+                    elif (
                         secondary_pressed
                         and not self.prev_secondary_pressed
                         and self.attack_cooldown_timer <= 0
@@ -380,7 +453,7 @@ class Player:
                 self.attack_knockback = profile["knockback"]
                 self.post_attack_timer = 0
                 self.attack_id += 1
-                if triggered_attack in ("aerial_light", "aerial_heavy"):
+                if triggered_attack in ("aerial_light", "aerial_heavy", "dive_kick"):
                     self.aerial_attack_used = True
                 if triggered_attack in GROUND_PRIMARY_COMBO:
                     self.combo_step += 1
@@ -406,6 +479,18 @@ class Player:
                     opposite_key = pygame.K_LEFT if self.facing > 0 else pygame.K_RIGHT
                     if not _key(opposite_dir, opposite_key):
                         self.vel_x = self.facing * AERIAL_HEAVY_FORWARD_VEL
+
+            # Dash punch: player lunges forward through the strike
+            if (
+                self.on_ground
+                and self.current_attack_type == "dash_punch"
+                and self.attack_timer > 0
+            ):
+                elapsed = self.attack_duration_frames - self.attack_timer
+                strike_start = self.attack_anticipation_frames
+                strike_end = strike_start + self.attack_strike_frames
+                if strike_start <= elapsed < strike_end:
+                    self.vel_x = self.facing * DASH_PUNCH_VEL
         self.prev_primary_pressed = primary_pressed
         self.prev_secondary_pressed = secondary_pressed
         self.prev_grab_pressed = grab_key
@@ -457,6 +542,15 @@ class Player:
             return None
         attack_width = self.attack_width + self.weapon_range_bonus
         attack_height = self.attack_height
+        # Spin attack: centered hitbox that covers both sides of the player
+        if self.current_attack_type == "spin_attack":
+            center_x = int(self.x + self.width // 2 - attack_width // 2)
+            return pygame.Rect(
+                center_x,
+                int(self.y + self.height * 0.15),
+                attack_width,
+                attack_height,
+            )
         # Choose y_ratio based on attack type (relative to player's current y)
         if self.current_attack_type == "secondary":
             y_ratio = 0.55
@@ -471,6 +565,10 @@ class Player:
         elif self.current_attack_type == "combo2":
             y_ratio = 0.35
         elif self.current_attack_type == "combo3":
+            y_ratio = 0.50
+        elif self.current_attack_type == "dash_punch":
+            y_ratio = 0.20
+        elif self.current_attack_type == "dive_kick":
             y_ratio = 0.50
         else:
             y_ratio = 0.30
@@ -557,7 +655,7 @@ class Player:
             pose = "hurt"
             hurt_ratio = min(1.0, self.hurt_anim_timer / HURT_ANIM_FRAMES)
         elif not self.on_ground:
-            if self.is_attacking() and self.current_attack_type == "aerial_heavy":
+            if self.is_attacking() and self.current_attack_type in ("aerial_heavy", "dive_kick"):
                 pose = "aerial_kick"
             elif self.is_attacking() and self.current_attack_type == "aerial_light":
                 pose = "aerial_attack"
@@ -569,8 +667,10 @@ class Player:
                 pose = "crouch_punch"
             elif self.current_attack_type == "crouch_kick":
                 pose = "crouch_kick"
-            elif self.current_attack_type in ("secondary", "combo3"):
+            elif self.current_attack_type in ("secondary", "combo3", "spin_attack"):
                 pose = "kick"
+            elif self.current_attack_type == "dash_punch":
+                pose = "attack"
             else:
                 pose = "attack"
             hurt_ratio = 0.0
@@ -664,10 +764,12 @@ class Player:
         attack_rect = self.get_attack_rect()
         if attack_rect is not None:
             draw_attack_rect = attack_rect.move(-int(camera_x), 0)
-            if self.current_attack_type in ("aerial_light", "aerial_heavy"):
+            if self.current_attack_type in ("aerial_light", "aerial_heavy", "dive_kick"):
                 hitbox_color = AERIAL_ATTACK_HITBOX_COLOR
             elif self.current_attack_type in ("secondary", "crouch_kick", "combo3"):
                 hitbox_color = SECONDARY_ATTACK_HITBOX_COLOR
+            elif self.current_attack_type in SPECIAL_MOVES:
+                hitbox_color = SPECIAL_ATTACK_HITBOX_COLOR
             else:
                 hitbox_color = PRIMARY_ATTACK_HITBOX_COLOR
             pygame.draw.rect(screen, hitbox_color, draw_attack_rect, 2)
