@@ -113,6 +113,7 @@ class Player:
         self.weapon_damage_bonus = 0
         self.weapon_range_bonus = 0
         self.aerial_attack_used = False
+        self.held_object = None  # EnvironmentObject currently being carried
 
     def update(self):
         keys = pygame.key.get_pressed()
@@ -389,7 +390,17 @@ class Player:
             attack_ratio=attack_ratio,
             attack_anticipation_end=attack_anticipation_end,
             attack_strike_end=attack_strike_end,
+            weapon_name=self.weapon_name,
         )
+
+        # Draw held object above head (crate/barrel being carried)
+        if self.held_object is not None:
+            obj = self.held_object
+            overhead_x = int(draw_x + self.width / 2 - obj.width / 2)
+            overhead_y = int(self.y - obj.height - 6)
+            obj.x = overhead_x + camera_x
+            obj.y = float(overhead_y)
+            obj.draw(screen, camera_x)
 
         pygame.draw.line(
             screen,
