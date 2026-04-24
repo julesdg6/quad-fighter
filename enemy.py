@@ -1,5 +1,6 @@
 import pygame
 from render import draw_fighter, get_depth_scale
+from combat import KNOCKDOWN_STUN_FRAMES
 
 LANE_CHASE_THRESHOLD = 4
 LANE_CHASE_SPEED = 1.5
@@ -123,12 +124,19 @@ class Enemy:
         self.facing = -1
         self.charge_timer = 0
         self.charge_cooldown_timer = 0
+        self.hit_region = "torso"
+        self.knockdown_timer = 0
 
     def update(self, player):
         if self.hurt_flash_timer > 0:
             self.hurt_flash_timer -= 1
         if self.hurt_anim_timer > 0:
             self.hurt_anim_timer -= 1
+        if self.knockdown_timer > 0:
+            self.knockdown_timer -= 1
+            # Keep character frozen until knockdown timer expires
+            self.hit_stun_timer = max(self.hit_stun_timer, 1)
+            self.hurt_anim_timer = max(self.hurt_anim_timer, 1)
         if self.attack_cooldown_timer > 0:
             self.attack_cooldown_timer -= 1
 
@@ -271,17 +279,23 @@ class Enemy:
 
         hurt_flash = self.hurt_flash_timer > 0
         body_rect = pygame.Rect(int(draw_x), int(self.y), self.width, self.height)
-        if self.hurt_anim_timer > 0:
+        if self.knockdown_timer > 0:
+            pose = "knockdown"
+            hurt_ratio = min(1.0, self.knockdown_timer / KNOCKDOWN_STUN_FRAMES)
+        elif self.hurt_anim_timer > 0:
             pose = "hurt"
+            hurt_ratio = min(1.0, self.hurt_anim_timer / HURT_ANIMATION_DURATION_FRAMES)
         elif self.attack_timer > 0:
             pose = "attack"
+            hurt_ratio = 0.0
         elif abs(self.vel_x) > 0.05:
             pose = "walk"
+            hurt_ratio = 0.0
         else:
             pose = "idle"
+            hurt_ratio = 0.0
 
         move_ratio = min(1.0, abs(self.vel_x) / self.speed) if self.speed else 0.0
-        hurt_ratio = min(1.0, self.hurt_anim_timer / HURT_ANIMATION_DURATION_FRAMES)
         attack_ratio = max(
             0.0,
             min(1.0, 1.0 - (self.attack_timer / self.attack_duration_frames)),
@@ -381,6 +395,7 @@ class Enemy:
             attack_strike_end=attack_strike_end,
             hurt_ratio=hurt_ratio,
             phase_offset=self.x * 0.01,
+            hit_region=self.hit_region,
         )
 
         if self.is_attack_windup():

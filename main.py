@@ -4,7 +4,7 @@ import os
 import math
 from player import Player
 from enemy import Enemy, BOSS_MAX_HEALTH
-from combat import check_attack_collision, apply_knockback
+from combat import check_attack_collision, apply_knockback, get_hit_region
 from objects import EnvironmentObject
 from background import generate_background, draw_background_pre_lane, draw_background_post_lane, LEVEL_SEED_MULTIPLIER
 from music import AcidMachine
@@ -337,7 +337,8 @@ while running:
                 continue
             if check_attack_collision(player, enemy):
                 enemy.health = max(0, enemy.health - player.get_attack_damage())
-                apply_knockback(enemy, player, knockback_distance=player.get_attack_knockback())
+                region = get_hit_region(player.get_attack_rect(), enemy)
+                apply_knockback(enemy, player, knockback_distance=player.get_attack_knockback(), hit_region=region)
                 hit_pause_timer = HIT_PAUSE_FRAMES
                 impact_timer = IMPACT_FLASH_FRAMES
                 impact_rect = enemy.get_rect().copy()
@@ -381,7 +382,8 @@ while running:
             if not enemy_attack_rect.colliderect(player_rect):
                 continue
             player.health = max(0, player.health - enemy.attack_damage)
-            apply_knockback(player, enemy, knockback_distance=enemy.attack_knockback)
+            region = get_hit_region(enemy_attack_rect, player)
+            apply_knockback(player, enemy, knockback_distance=enemy.attack_knockback, hit_region=region)
             enemy.last_hit_player_attack_id = enemy.attack_id
             hit_pause_timer = HIT_PAUSE_FRAMES
             impact_timer = IMPACT_FLASH_FRAMES
