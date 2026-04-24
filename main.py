@@ -8,6 +8,7 @@ from combat import check_attack_collision, apply_knockback, get_hit_region
 from objects import EnvironmentObject
 from background import generate_background, draw_background_pre_lane, draw_background_post_lane, LEVEL_SEED_MULTIPLIER
 from music import AcidMachine
+from sfx import SfxPlayer
 from splash import SplashScreen
 from options import OptionsScreen
 from settings import Settings
@@ -151,6 +152,7 @@ enemy_spawn_zones = [
 enemies = []
 lock_zone_enemies = []   # enemies from the current locked zone; cleared when all are defeated
 camera_lock_right = None  # world-x of the maximum camera right-edge while a zone is locked
+enemy_sfx_attack_ids: dict = {}  # id(enemy) → last attack_id when SFX was triggered
 
 
 def build_environment_objects():
@@ -173,6 +175,8 @@ environment_objects = build_environment_objects()
 break_effects = []
 
 acid = AcidMachine()
+sfx = SfxPlayer()
+sfx.set_volume(settings.sfx_volume / 100.0)
 
 
 def break_object(obj, environment_objects, break_effects):
@@ -235,6 +239,7 @@ if QUAD_FIGHTER_AUTO_EXIT_FRAMES == 0:
         if result == "options":
             OptionsScreen(screen, WIDTH, HEIGHT, FPS, settings, joystick=joystick).run(acid)
             acid.set_volume(settings.music_volume / 100.0)
+            sfx.set_volume(settings.sfx_volume / 100.0)
         else:
             break  # "game" – proceed to gameplay
 
@@ -294,6 +299,8 @@ while running:
             hit_pause_timer = HIT_PAUSE_FRAMES
             impact_timer = IMPACT_FLASH_FRAMES
             impact_rect = throw_enemy.get_rect().copy()
+            sfx.play("impact")
+            sfx.play("enemy_hurt")
 
         for obj in environment_objects:
             if not obj.solid or obj.health <= 0:
@@ -319,10 +326,14 @@ while running:
 
         for enemy in enemies:
             if enemy.health > 0:
+                prev_sfx_attack_id = enemy_sfx_attack_ids.get(id(enemy), enemy.attack_id)
                 if boss_intro_timer > 0 and enemy.is_boss:
                     enemy.facing = -1 if player.x < enemy.x else 1
                 else:
                     enemy.update(player, enemies)
+                if enemy.attack_id != prev_sfx_attack_id:
+                    sfx.play("boss_attack" if enemy.is_boss else "enemy_attack")
+                enemy_sfx_attack_ids[id(enemy)] = enemy.attack_id
 
         if (
             not boss_spawned
@@ -346,6 +357,14 @@ while running:
         attack_started = player.attack_id != last_attack_id
         if attack_started:
             last_attack_id = player.attack_id
+            # Play attack whoosh (miss sound – hit sound plays separately on contact)
+            attack_type = player.current_attack_type
+            if attack_type in ("aerial_light", "aerial_heavy"):
+                sfx.play("aerial")
+            elif attack_type in ("secondary", "crouch_kick"):
+                sfx.play("kick")
+            else:
+                sfx.play("punch")
             # Weapon pickup: pick up any floor weapon within reach (if hands are free)
             if player.weapon_name is None and player.held_object is None:
                 pickup_rect = player.get_rect().inflate(68, 20)
@@ -374,6 +393,7 @@ while running:
             if obj.is_destroyed():
                 # Hit ground
                 break_object(obj, environment_objects, break_effects)
+                sfx.play("break")
                 continue
             obj_rect = obj.get_rect()
             for enemy in enemies:
@@ -388,6 +408,8 @@ while running:
                 impact_rect = enemy.get_rect().copy()
                 # Break the thrown object on enemy contact
                 break_object(obj, environment_objects, break_effects)
+                sfx.play("impact")
+                sfx.play("enemy_hurt")
                 break
 
         weapon_hit_registered = False
@@ -401,6 +423,8 @@ while running:
                 hit_pause_timer = HIT_PAUSE_FRAMES
                 impact_timer = IMPACT_FLASH_FRAMES
                 impact_rect = enemy.get_rect().copy()
+                sfx.play("impact")
+                sfx.play("enemy_hurt")
                 weapon_hit_registered = True
 
         attack_rect = player.get_attack_rect()
@@ -418,6 +442,7 @@ while running:
                 impact_rect = obj.get_rect().copy()
                 if obj.is_destroyed():
                     break_object(obj, environment_objects, break_effects)
+                    sfx.play("break")
 
         if weapon_hit_registered:
             player.consume_weapon_hit()
@@ -447,6 +472,8 @@ while running:
             hit_pause_timer = HIT_PAUSE_FRAMES
             impact_timer = IMPACT_FLASH_FRAMES
             impact_rect = player.get_rect().copy()
+            sfx.play("impact")
+            sfx.play("player_hurt")
 
     if impact_timer > 0:
         impact_timer -= 1
@@ -457,6 +484,8 @@ while running:
             if not enemy.defeat_handled:
                 enemy.defeat_handled = True
                 enemies_beaten += 1
+            # Remove stale SFX tracking entry for this enemy
+            enemy_sfx_attack_ids.pop(id(enemy), None)
         else:
             remaining_enemies.append(enemy)
     enemies = remaining_enemies
