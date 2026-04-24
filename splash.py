@@ -2,9 +2,14 @@ import pygame
 import math
 
 # Splash screen timing
-SPLASH_DURATION_FRAMES = 180   # 3 s at 60 FPS
+SPLASH_DURATION_FRAMES = 180   # 3 sec at 60 FPS
 SCALE_IN_FRAMES = 40           # logo scale-in animation length
 PROMPT_BLINK_PERIOD = 60       # "press any key" blink cycle in frames
+
+# Font sizes
+FONT_SIZE_LOGO = 112
+FONT_SIZE_TAGLINE = 32
+FONT_SIZE_PROMPT = 28
 
 # Colours
 BG_TOP = (6, 6, 20)
@@ -33,7 +38,8 @@ def _blit_centred(screen, surf, cx, cy):
 def _draw_logo(screen, width, height, frame, font_logo, font_tagline):
     """Render the QUAD FIGHTER logo with outline + glow, animated scale-in."""
     scale = min(1.0, frame / SCALE_IN_FRAMES) if SCALE_IN_FRAMES > 0 else 1.0
-    # Ease-out: apply a square-root curve so it feels snappy
+    # sqrt maps [0,1] to [0,1] with a concave-down curve: fast at the start,
+    # decelerating to rest — this is an ease-out (deceleration) effect.
     scale = math.sqrt(scale)
 
     cx = width // 2
@@ -110,9 +116,9 @@ class SplashScreen:
         self._bg = pygame.Surface((width, height))
         _draw_background(self._bg, width, height)
 
-        self.font_logo = pygame.font.SysFont(None, 112, bold=True)
-        self.font_tagline = pygame.font.SysFont(None, 32)
-        self.font_prompt = pygame.font.SysFont(None, 28)
+        self.font_logo = pygame.font.SysFont(None, FONT_SIZE_LOGO, bold=True)
+        self.font_tagline = pygame.font.SysFont(None, FONT_SIZE_TAGLINE)
+        self.font_prompt = pygame.font.SysFont(None, FONT_SIZE_PROMPT)
 
     def run(self) -> None:
         """Block until the splash ends (key press or timer expiry)."""
