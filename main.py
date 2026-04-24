@@ -435,6 +435,8 @@ while running:
             player.weapon_damage_bonus = 0
             player.weapon_range_bonus = 0
             player.held_object = None
+            player.combo_step = 0
+            player.combo_window_timer = 0
             enemies.clear()
             environment_objects.clear()
             environment_objects.extend(build_environment_objects())
@@ -595,6 +597,11 @@ while running:
     if section_message_timer > 0:
         section_text = font.render(section_message, True, (235, 235, 235))
         screen.blit(section_text, (WIDTH // 2 - section_text.get_width() // 2, 82))
+
+    # Combo chain counter
+    if player.combo_step > 0:
+        combo_surf = font.render(f"COMBO  x{player.combo_step}", True, (255, 215, 0))
+        screen.blit(combo_surf, (WIDTH // 2 - combo_surf.get_width() // 2, 108))
     if stage_complete or level_transition_timer > 0:
         pulse = LEVEL_COMPLETE_PULSE_BASE + int(
             LEVEL_COMPLETE_PULSE_AMPLITUDE
