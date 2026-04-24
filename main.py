@@ -57,6 +57,33 @@ ENEMY_SPAWN_LANE_OFFSETS = (-28, 0, 30)
 PIPE_WEAPON_HITS = 6
 PIPE_WEAPON_DAMAGE_BONUS = 8
 PIPE_WEAPON_RANGE_BONUS = 20
+BAT_WEAPON_HITS = 8
+BAT_WEAPON_DAMAGE_BONUS = 12
+BAT_WEAPON_RANGE_BONUS = 28
+WHIP_WEAPON_HITS = 10
+WHIP_WEAPON_DAMAGE_BONUS = 6
+WHIP_WEAPON_RANGE_BONUS = 52
+CHAIN_WEAPON_HITS = 7
+CHAIN_WEAPON_DAMAGE_BONUS = 10
+CHAIN_WEAPON_RANGE_BONUS = 32
+NUNCHUCKS_WEAPON_HITS = 6
+NUNCHUCKS_WEAPON_DAMAGE_BONUS = 14
+NUNCHUCKS_WEAPON_RANGE_BONUS = 18
+# Crate/barrel sizes (bigger than before)
+CRATE_W, CRATE_H = 62, 62
+BARREL_W, BARREL_H = 54, 74
+THROW_VEL_X = 9.0
+THROW_VEL_Y = -9.0
+THROW_DAMAGE = 32
+# Pickup weapon kinds that can be grabbed from the floor
+WEAPON_KINDS = {"pipe", "bat", "whip", "chain", "nunchucks"}
+WEAPON_STATS = {
+    "pipe":      {"hits": PIPE_WEAPON_HITS,      "damage": PIPE_WEAPON_DAMAGE_BONUS,      "range": PIPE_WEAPON_RANGE_BONUS},
+    "bat":       {"hits": BAT_WEAPON_HITS,       "damage": BAT_WEAPON_DAMAGE_BONUS,       "range": BAT_WEAPON_RANGE_BONUS},
+    "whip":      {"hits": WHIP_WEAPON_HITS,      "damage": WHIP_WEAPON_DAMAGE_BONUS,      "range": WHIP_WEAPON_RANGE_BONUS},
+    "chain":     {"hits": CHAIN_WEAPON_HITS,     "damage": CHAIN_WEAPON_DAMAGE_BONUS,     "range": CHAIN_WEAPON_RANGE_BONUS},
+    "nunchucks": {"hits": NUNCHUCKS_WEAPON_HITS, "damage": NUNCHUCKS_WEAPON_DAMAGE_BONUS, "range": NUNCHUCKS_WEAPON_RANGE_BONUS},
+}
 
 # Setup
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -97,20 +124,38 @@ enemies = []
 
 def build_environment_objects():
     return [
-        EnvironmentObject("crate", 520, HEIGHT - 96, 44, 44, health=35, solid=True),
-        EnvironmentObject("barrel", 980, HEIGHT - 108, 38, 56, health=45, solid=True),
-        EnvironmentObject("pipe", 1150, HEIGHT - 72, 28, 10),
-        EnvironmentObject("crate", 1540, HEIGHT - 96, 44, 44, health=35, solid=True),
-        EnvironmentObject("food", 1680, HEIGHT - 70, 26, 20),
-        EnvironmentObject("barrel", 2120, HEIGHT - 108, 38, 56, health=45, solid=True),
-        EnvironmentObject("crate", 2620, HEIGHT - 96, 44, 44, health=35, solid=True),
+        EnvironmentObject("bat",       360, HEIGHT - 74, 64, 16),
+        EnvironmentObject("crate",     520, HEIGHT - CRATE_H - 34, CRATE_W, CRATE_H, health=40, solid=True),
+        EnvironmentObject("barrel",    980, HEIGHT - BARREL_H - 34, BARREL_W, BARREL_H, health=50, solid=True),
+        EnvironmentObject("pipe",     1060, HEIGHT - 72, 34, 12),
+        EnvironmentObject("whip",     1150, HEIGHT - 74, 60, 18),
+        EnvironmentObject("crate",    1540, HEIGHT - CRATE_H - 34, CRATE_W, CRATE_H, health=40, solid=True),
+        EnvironmentObject("chain",    1620, HEIGHT - 74, 64, 16),
+        EnvironmentObject("food",     1680, HEIGHT - 70, 26, 20),
+        EnvironmentObject("nunchucks",1820, HEIGHT - 74, 64, 16),
+        EnvironmentObject("barrel",   2120, HEIGHT - BARREL_H - 34, BARREL_W, BARREL_H, health=50, solid=True),
+        EnvironmentObject("crate",    2620, HEIGHT - CRATE_H - 34, CRATE_W, CRATE_H, health=40, solid=True),
     ]
 
 
 environment_objects = build_environment_objects()
 break_effects = []
+prev_grab_pressed = False
 
 acid = AcidMachine()
+
+
+def break_object(obj, environment_objects, break_effects):
+    """Register a break effect and spawn drops for a destroyed crate or barrel."""
+    cx = obj.x + obj.width / 2
+    cy = obj.y + obj.height / 2
+    break_effects.append({"x": cx, "y": cy, "timer": BREAK_EFFECT_FRAMES})
+    if obj.kind == "crate":
+        environment_objects.append(EnvironmentObject("food", obj.x + 8, HEIGHT - 70, 26, 20))
+    elif obj.kind == "barrel":
+        environment_objects.append(EnvironmentObject("pipe", obj.x + 6, HEIGHT - 72, 34, 12))
+    if obj in environment_objects:
+        environment_objects.remove(obj)
 
 
 def spawn_enemies(player_x, zone):
@@ -207,22 +252,79 @@ while running:
         attack_started = player.attack_id != last_attack_id
         if attack_started:
             last_attack_id = player.attack_id
-            pickup_rect = player.get_rect().inflate(68, 20)
-            picked_weapon = None
-            for obj in environment_objects:
-                if obj.kind != "pipe":
+            # Weapon pickup: pick up any floor weapon within reach (if hands are free)
+            if player.weapon_name is None and player.held_object is None:
+                pickup_rect = player.get_rect().inflate(68, 20)
+                picked_weapon = None
+                for obj in environment_objects:
+                    if obj.kind not in WEAPON_KINDS:
+                        continue
+                    if pickup_rect.colliderect(obj.get_rect()):
+                        picked_weapon = obj
+                        break
+                if picked_weapon is not None:
+                    stats = WEAPON_STATS[picked_weapon.kind]
+                    player.equip_weapon(
+                        picked_weapon.kind,
+                        hits=stats["hits"],
+                        damage_bonus=stats["damage"],
+                        range_bonus=stats["range"],
+                    )
+                    environment_objects.remove(picked_weapon)
+
+        # Grab / throw with C key (edge-triggered)
+        grab_keys = pygame.key.get_pressed()
+        grab_pressed = grab_keys[pygame.K_c]
+        if grab_pressed and not prev_grab_pressed and not player.is_attacking():
+            if player.held_object is not None:
+                # Throw the held object
+                held = player.held_object
+                player.held_object = None
+                held.thrown = True
+                held.solid = False
+                held.vel_x = player.facing * THROW_VEL_X
+                held.vel_y = THROW_VEL_Y
+                held.thrower = player
+                # Re-add to environment_objects so it can hit enemies
+                environment_objects.append(held)
+            else:
+                # Attempt to lift a nearby crate or barrel
+                lift_rect = player.get_rect().inflate(60, 24)
+                for obj in list(environment_objects):
+                    if obj.kind not in ("crate", "barrel"):
+                        continue
+                    if obj.thrown:
+                        continue
+                    if lift_rect.colliderect(obj.get_rect()):
+                        player.held_object = obj
+                        # Remove from environment while being held
+                        environment_objects.remove(obj)
+                        break
+        prev_grab_pressed = grab_pressed
+
+        # Thrown object physics + enemy/ground collision
+        for obj in list(environment_objects):
+            if not obj.thrown:
+                continue
+            obj.update(HEIGHT)
+            if obj.is_destroyed():
+                # Hit ground
+                break_object(obj, environment_objects, break_effects)
+                continue
+            obj_rect = obj.get_rect()
+            for enemy in enemies:
+                if enemy.health <= 0:
                     continue
-                if pickup_rect.colliderect(obj.get_rect()):
-                    picked_weapon = obj
-                    break
-            if picked_weapon is not None:
-                player.equip_weapon(
-                    "pipe",
-                    hits=PIPE_WEAPON_HITS,
-                    damage_bonus=PIPE_WEAPON_DAMAGE_BONUS,
-                    range_bonus=PIPE_WEAPON_RANGE_BONUS,
-                )
-                environment_objects.remove(picked_weapon)
+                if not obj_rect.colliderect(enemy.get_rect()):
+                    continue
+                enemy.health = max(0, enemy.health - THROW_DAMAGE)
+                apply_knockback(enemy, player, knockback_distance=96)
+                hit_pause_timer = HIT_PAUSE_FRAMES
+                impact_timer = IMPACT_FLASH_FRAMES
+                impact_rect = enemy.get_rect().copy()
+                # Break the thrown object on enemy contact
+                break_object(obj, environment_objects, break_effects)
+                break
 
         weapon_hit_registered = False
         for enemy in enemies:
@@ -250,16 +352,7 @@ while running:
                 impact_timer = IMPACT_FLASH_FRAMES
                 impact_rect = obj.get_rect().copy()
                 if obj.is_destroyed():
-                    break_center_x = obj.x + obj.width / 2
-                    break_center_y = obj.y + obj.height / 2
-                    break_effects.append({"x": break_center_x, "y": break_center_y, "timer": BREAK_EFFECT_FRAMES})
-                    if obj.kind == "crate":
-                        environment_objects.append(EnvironmentObject("food", obj.x + 8, HEIGHT - 70, 26, 20))
-                    if obj.kind == "barrel":
-                        environment_objects.append(
-                            EnvironmentObject("pipe", obj.x + 6, HEIGHT - 72, 28, 10)
-                        )
-                    environment_objects.remove(obj)
+                    break_object(obj, environment_objects, break_effects)
 
         if weapon_hit_registered:
             player.consume_weapon_hit()
@@ -351,6 +444,7 @@ while running:
             player.weapon_hits_remaining = 0
             player.weapon_damage_bonus = 0
             player.weapon_range_bonus = 0
+            player.held_object = None
             enemies.clear()
             environment_objects.clear()
             environment_objects.extend(build_environment_objects())
@@ -474,32 +568,52 @@ while running:
     progress_target = BOSS_TRIGGER_X if BOSS_TRIGGER_X > 0 else STAGE_CLEAR_X
     progress_pct = int((player.x / progress_target) * 100) if progress_target > 0 else 100
     progress_pct = max(0, min(progress_pct, 100))
-    weapon_text = "Weapon: FISTS"
-    if player.weapon_name is not None:
+    if player.held_object is not None:
+        weapon_text = f"Carrying: {player.held_object.kind.upper()}  [C]=throw"
+    elif player.weapon_name is not None:
         weapon_text = f"Weapon: {player.weapon_name.upper()} ({player.weapon_hits_remaining})"
+    else:
+        weapon_text = "Weapon: FISTS  [C]=grab"
     hud_text = (
-        f"Player HP: {player.health}/{player.max_health}   Lvl: {level_number}   "
-        f"{enemy_status}   Stage: {progress_pct}%   {weapon_text}"
+        f"Lvl: {level_number}   {enemy_status}   Stage: {progress_pct}%   {weapon_text}"
     )
     screen.blit(font.render(hud_text, True, (220, 220, 220)), (16, 16))
+
+    # Player strength / health bar
+    hp_ratio = max(0.0, min(1.0, player.health / player.max_health))
+    if hp_ratio > 0.6:
+        hp_color = (72, 200, 80)
+    elif hp_ratio > 0.3:
+        hp_color = (220, 190, 50)
+    else:
+        hp_color = (210, 60, 60)
+    hp_label = font.render("STR", True, (220, 220, 220))
+    screen.blit(hp_label, (16, 36))
+    hp_bar_rect = pygame.Rect(54, 39, 160, 12)
+    pygame.draw.rect(screen, (40, 40, 40), hp_bar_rect)
+    pygame.draw.rect(screen, hp_color, (hp_bar_rect.x, hp_bar_rect.y, int(hp_bar_rect.width * hp_ratio), hp_bar_rect.height))
+    pygame.draw.rect(screen, (180, 180, 180), hp_bar_rect, 1)
+    hp_val = font.render(f"{player.health}/{player.max_health}", True, (200, 200, 200))
+    screen.blit(hp_val, (220, 36))
+
     if boss_enemy is not None:
         boss_label = font.render("BOSS", True, (250, 220, 220))
-        screen.blit(boss_label, (16, 42))
+        screen.blit(boss_label, (16, 57))
         boss_ratio = max(0.0, min(1.0, boss_enemy.health / BOSS_MAX_HEALTH))
-        bar_rect = pygame.Rect(78, 45, 240, 14)
+        bar_rect = pygame.Rect(78, 60, 240, 14)
         pygame.draw.rect(screen, (70, 22, 22), bar_rect)
         pygame.draw.rect(screen, (190, 62, 62), (bar_rect.x, bar_rect.y, int(bar_rect.width * boss_ratio), bar_rect.height))
         pygame.draw.rect(screen, (220, 220, 220), bar_rect, 2)
     if section_message_timer > 0:
         section_text = font.render(section_message, True, (235, 235, 235))
-        screen.blit(section_text, (WIDTH // 2 - section_text.get_width() // 2, 68))
+        screen.blit(section_text, (WIDTH // 2 - section_text.get_width() // 2, 82))
     if stage_complete or level_transition_timer > 0:
         pulse = LEVEL_COMPLETE_PULSE_BASE + int(
             LEVEL_COMPLETE_PULSE_AMPLITUDE
             * abs(math.sin((frame_count % LEVEL_COMPLETE_PULSE_PERIOD_FRAMES) * LEVEL_COMPLETE_PULSE_STEP))
         )
         clear_text = font.render("LEVEL COMPLETE", True, (pulse, pulse, pulse))
-        screen.blit(clear_text, (WIDTH // 2 - clear_text.get_width() // 2, 98))
+        screen.blit(clear_text, (WIDTH // 2 - clear_text.get_width() // 2, 112))
         if level_transition_timer > 0:
             seconds_remaining = max(1, (level_transition_timer + FPS - 1) // FPS)
             next_level_text = font.render(
@@ -507,7 +621,7 @@ while running:
                 True,
                 (210, 210, 210),
             )
-            screen.blit(next_level_text, (WIDTH // 2 - next_level_text.get_width() // 2, 124))
+            screen.blit(next_level_text, (WIDTH // 2 - next_level_text.get_width() // 2, 138))
 
     pygame.display.flip()
     frame_count += 1

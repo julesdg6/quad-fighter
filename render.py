@@ -107,6 +107,93 @@ def _clamp(value, min_value, max_value):
     return max(min_value, min(max_value, value))
 
 
+def _draw_weapon_at_hand(screen, weapon_name, front_hand, facing, width, height, attack_extension):
+    """Draw the carried weapon extending from the fighter's front hand."""
+    hx, hy = front_hand
+    ext = max(0.0, min(1.0, attack_extension))
+
+    if weapon_name in ("pipe", "bat"):
+        # Long wooden/metal stick – extends horizontally from hand
+        stick_len = int(width * (0.55 + 0.35 * ext))
+        stick_w = max(5, int(width * 0.07))
+        # Baseball bat has a tapered barrel; pipe is uniform
+        bat_barrel_taper = int(stick_len * 0.22) if weapon_name == "bat" else 0
+        base_color = (150, 100, 50) if weapon_name == "bat" else (150, 150, 158)
+        dark_color = (100, 65, 30) if weapon_name == "bat" else (90, 90, 100)
+        tip_x = hx + facing * stick_len
+        # Main stick body (tapered at barrel end for bat)
+        pts = [
+            (hx, hy - stick_w // 2),
+            (tip_x - facing * bat_barrel_taper, hy - (stick_w // 2 + bat_barrel_taper // 3)),
+            (tip_x, hy - (stick_w // 2 + bat_barrel_taper // 2)),
+            (tip_x, hy + (stick_w // 2 + bat_barrel_taper // 2)),
+            (tip_x - facing * bat_barrel_taper, hy + (stick_w // 2 + bat_barrel_taper // 3)),
+            (hx, hy + stick_w // 2),
+        ]
+        pygame.draw.polygon(screen, base_color, pts)
+        pygame.draw.polygon(screen, dark_color, pts, 1)
+
+    elif weapon_name == "whip":
+        # Whip: curved line from hand, snapping forward during attack
+        seg = max(4, int(width * 0.14))
+        segs = 5
+        pts = [(hx, hy)]
+        for i in range(1, segs + 1):
+            t = i / segs
+            droop = int(height * 0.08 * t * (1.0 - ext * 0.6))
+            px = hx + facing * int(seg * i * (0.8 + 0.4 * ext))
+            py = hy + droop
+            pts.append((px, py))
+        if len(pts) >= 2:
+            pygame.draw.lines(screen, (160, 100, 40), False, pts, 3)
+            # Cracker tip
+            pygame.draw.circle(screen, (220, 160, 80), pts[-1], 3)
+
+    elif weapon_name == "chain":
+        # Chain: series of oval links from hand
+        link_spacing = max(8, int(width * 0.1))
+        n_links = 4
+        droop_per = int(height * 0.025 * (1.0 - ext * 0.5))
+        lw, lh = max(6, link_spacing - 2), max(4, int(link_spacing * 0.45))
+        for i in range(n_links):
+            lx = hx + facing * link_spacing * i - lw // 2
+            ly = hy + droop_per * i - lh // 2
+            link_rect = pygame.Rect(lx, ly, lw, lh)
+            pygame.draw.ellipse(screen, (190, 190, 200), link_rect)
+            pygame.draw.ellipse(screen, (110, 110, 120), link_rect, 2)
+
+    elif weapon_name == "nunchucks":
+        # Nunchucks: one stick held in hand, other swings out on a short cord
+        stick_len = max(16, int(height * 0.17))
+        stick_w = max(5, int(width * 0.07))
+        cord_len = max(10, int(stick_len * 0.55))
+        swing = ext * 0.9  # swing angle proportion
+        # Held stick along the arm
+        s1_end = (hx + facing * stick_len, hy)
+        pts1 = [
+            (hx, hy - stick_w // 2),
+            (s1_end[0], s1_end[1] - stick_w // 2),
+            (s1_end[0], s1_end[1] + stick_w // 2),
+            (hx, hy + stick_w // 2),
+        ]
+        pygame.draw.polygon(screen, (80, 52, 28), pts1)
+        pygame.draw.polygon(screen, (50, 32, 14), pts1, 1)
+        # Short cord
+        cord_end_x = s1_end[0] + facing * int(cord_len * (0.4 + 0.6 * swing))
+        cord_end_y = s1_end[1] + int(cord_len * (0.6 - 0.5 * swing))
+        pygame.draw.line(screen, (180, 180, 180), s1_end, (cord_end_x, cord_end_y), 2)
+        # Swinging stick
+        s2_end = (cord_end_x + facing * stick_len, cord_end_y)
+        pts2 = [
+            (cord_end_x, cord_end_y - stick_w // 2),
+            (s2_end[0], s2_end[1] - stick_w // 2),
+            (s2_end[0], s2_end[1] + stick_w // 2),
+            (cord_end_x, cord_end_y + stick_w // 2),
+        ]
+        pygame.draw.polygon(screen, (80, 52, 28), pts2)
+        pygame.draw.polygon(screen, (50, 32, 14), pts2, 1)
+
+
 def draw_fighter(
     screen,
     body_rect,
@@ -119,6 +206,7 @@ def draw_fighter(
     phase_offset=0.0,
     attack_anticipation_end=ATTACK_ANTICIPATION_END,
     attack_strike_end=ATTACK_STRIKE_END,
+    weapon_name=None,
 ):
     facing = 1 if facing >= 0 else -1
     clamped_attack_ratio = max(0.0, min(1.0, attack_ratio))
@@ -656,6 +744,10 @@ def draw_fighter(
     front_fist_rect = pygame.Rect(front_hand[0] - hand_w // 2, front_hand[1] - hand_h // 2, hand_w, hand_h)
     pygame.draw.rect(screen, hand_color, rear_fist_rect, border_radius=2)
     pygame.draw.rect(screen, hand_color, front_fist_rect, border_radius=2)
+
+    # Draw carried weapon extending from front hand
+    if weapon_name is not None:
+        _draw_weapon_at_hand(screen, weapon_name, front_hand, facing, width, height, attack_extension)
 
     foot_len = max(MIN_FOOT_LENGTH, int(width * FOOT_LENGTH_RATIO))
     foot_height = max(MIN_FOOT_HEIGHT, int(height * FOOT_HEIGHT_RATIO))
