@@ -16,6 +16,7 @@ TELEGRAPH_PULSE_BASE = 90
 TELEGRAPH_PULSE_RANGE = 70
 TELEGRAPH_PULSE_FREQUENCY = 8
 CHARACTER_SCALE = 2
+ENEMY_SEPARATION_DIST = 48  # minimum extra gap between enemy centre-points beyond combined half-widths
 
 
 ENEMY_ATTACK_PROFILE = {
@@ -127,7 +128,7 @@ class Enemy:
         self.hit_region = "torso"
         self.knockdown_timer = 0
 
-    def update(self, player):
+    def update(self, player, enemies=None):
         if self.hurt_flash_timer > 0:
             self.hurt_flash_timer -= 1
         if self.hurt_anim_timer > 0:
@@ -170,7 +171,17 @@ class Enemy:
                         self.charge_timer = BOSS_CHARGE_DURATION
                         self.charge_cooldown_timer = BOSS_CHARGE_COOLDOWN
 
-            if self.should_attack(player):
+            # Attack stagger: non-boss enemies wait if a peer is already mid-attack
+            peer_is_attacking = (
+                not self.is_boss
+                and enemies is not None
+                and any(
+                    e is not self and e.health > 0 and not e.is_boss and e.is_attacking()
+                    for e in enemies
+                )
+            )
+
+            if not peer_is_attacking and self.should_attack(player):
                 self.attack_timer = self.attack_duration_frames
                 # Phase-2 enrage: boss attacks faster below 50% health
                 cooldown = self.attack_cooldown_frames
@@ -203,6 +214,18 @@ class Enemy:
         self.vel_y += self.gravity
         self.x += self.vel_x
         self.y += self.vel_y
+
+        # Separate from overlapping peer enemies to prevent unnatural stacking
+        if enemies:
+            for other in enemies:
+                if other is self or other.health <= 0:
+                    continue
+                dx = (self.x + self.width / 2) - (other.x + other.width / 2)
+                min_sep = (self.width + other.width) / 2 + ENEMY_SEPARATION_DIST
+                if abs(dx) < min_sep:
+                    push = (min_sep - abs(dx)) * 0.25
+                    # Push right when self is to the right or exactly tied; left otherwise
+                    self.x += push if dx >= 0 else -push
 
         self.x = max(0, min(self.x, self.screen_width - self.width))
         lane_min = self.screen_height * 0.5

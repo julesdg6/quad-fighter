@@ -54,7 +54,10 @@ LEVEL_COMPLETE_PULSE_STEP = 0.25
 BREAK_EFFECT_FRAMES = 12
 BREAK_EFFECT_BASE_SIZE = 6
 BREAK_EFFECT_SIZE_PER_FRAME = 2
-ENEMY_SPAWN_LANE_OFFSETS = (-28, 0, 30)
+ENEMY_SPAWN_LANE_OFFSETS = (-28, 0, 30, -14, 18)
+SPAWN_LEFT_OFFSET = 300   # how far to the left of the player a left-side enemy spawns
+SPAWN_LEFT_SPACING = 40   # extra spacing between left-side enemies in a group
+ENEMY_ATTACK_STAGGER_FRAMES = 22  # per-enemy stagger offset so groups don't all attack at once
 PIPE_WEAPON_HITS = 6
 PIPE_WEAPON_DAMAGE_BONUS = 8
 PIPE_WEAPON_RANGE_BONUS = 20
@@ -114,11 +117,11 @@ level_transition_timer = 0
 just_advanced_level = False
 
 enemy_spawn_zones = [
-    {"trigger_x": 260, "count": 1, "variants": ["raider"]},
-    {"trigger_x": 760, "count": 2, "variants": ["raider", "brawler"]},
-    {"trigger_x": 1280, "count": 1, "variants": ["brawler"]},
-    {"trigger_x": 1800, "count": 2, "variants": ["raider", "brawler"]},
-    {"trigger_x": 2360, "count": 1, "variants": ["brawler"]},
+    {"trigger_x": 260,  "count": 2, "variants": ["raider", "raider"]},
+    {"trigger_x": 760,  "count": 3, "variants": ["raider", "brawler", "raider"]},
+    {"trigger_x": 1280, "count": 2, "variants": ["brawler", "raider"]},
+    {"trigger_x": 1800, "count": 4, "variants": ["raider", "brawler", "raider", "brawler"]},
+    {"trigger_x": 2360, "count": 3, "variants": ["brawler", "raider", "brawler"]},
 ]
 enemies = []
 
@@ -163,13 +166,22 @@ def spawn_enemies(player_x, zone):
     count = zone["count"]
     variants = zone.get("variants") or ["raider"]
     spawned = []
+    right_index = 0
+    left_index = 0
     for i in range(count):
-        spawn_x = max(
-            player_x + WIDTH + SPAWN_PLAYER_AHEAD + i * SPAWN_PLAYER_SPACING,
-            trigger_x + SPAWN_TRIGGER_OFFSET + i * SPAWN_TRIGGER_SPACING,
-        )
-        spawn_x = min(WORLD_WIDTH - SPAWN_WORLD_RIGHT_PADDING, spawn_x)
         variant_index = min(i, len(variants) - 1)
+        # Alternate spawning left/right of the player so enemies surround from both sides.
+        # i == 0 → right, i == 1 → left, i == 2 → right, i == 3 → left …
+        if i % 2 == 0:
+            spawn_x = max(
+                player_x + WIDTH + SPAWN_PLAYER_AHEAD + right_index * SPAWN_PLAYER_SPACING,
+                trigger_x + SPAWN_TRIGGER_OFFSET + right_index * SPAWN_TRIGGER_SPACING,
+            )
+            spawn_x = min(WORLD_WIDTH - SPAWN_WORLD_RIGHT_PADDING, spawn_x)
+            right_index += 1
+        else:
+            spawn_x = max(0, player_x - SPAWN_LEFT_OFFSET - left_index * SPAWN_LEFT_SPACING)
+            left_index += 1
         enemy = Enemy(spawn_x, DEFAULT_ENEMY_GROUND_Y, WORLD_WIDTH, HEIGHT, variant=variants[variant_index])
         enemy.ground_y = max(
             LANE_TOP,
@@ -179,6 +191,8 @@ def spawn_enemies(player_x, zone):
             ),
         )
         enemy.y = enemy.ground_y
+        # Stagger attack cooldowns so enemies in a group don't all attack simultaneously.
+        enemy.attack_cooldown_timer = i * ENEMY_ATTACK_STAGGER_FRAMES
         spawned.append(enemy)
     return spawned
 
@@ -232,7 +246,7 @@ while running:
                 if boss_intro_timer > 0 and enemy.is_boss:
                     enemy.facing = -1 if player.x < enemy.x else 1
                 else:
-                    enemy.update(player)
+                    enemy.update(player, enemies)
 
         if (
             not boss_spawned
