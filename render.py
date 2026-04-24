@@ -29,6 +29,7 @@ FOOT_HEIGHT_RATIO = 0.06
 NECK_WIDTH_RATIO = 0.11
 IDLE_STANCE_DROP_RATIO = 0.035  # slight crouch depth for the fighting guard stance
 FIST_WIDTH_MULTIPLIER = 1.8  # rectangular fist wider than the old circle hand radius
+WALK_BOB_AMPLITUDE = 0.55  # extra vertical bob added during the walk cycle
 
 
 def _joint_midpoint(a, b, lift, bend):
@@ -125,6 +126,7 @@ def draw_fighter(
     t = pygame.time.get_ticks() / 1000.0 + phase_offset
     walk_phase = t * (BASE_WALK_PHASE_SPEED + move_ratio * WALK_PHASE_SPEED_FROM_MOVE)
     walk_sin = math.sin(walk_phase)
+    walk_cos = math.cos(walk_phase)
 
     width = body_rect.width
     height = body_rect.height
@@ -174,18 +176,30 @@ def draw_fighter(
     front_hand = (0, 0)
     rear_hand = (0, 0)
     attack_extension = 0.0
+    front_knee_extra_lift = 0.0
+    rear_knee_extra_lift = 0.0
 
     if pose == "walk":
-        stride = walk_sin * (0.28 + move_ratio * 0.14)
-        front_stride = stride * width
-        back_stride = -stride * width * 0.9
-        front_lift = max(0.0, math.sin(walk_phase + math.pi * 0.2)) * height * 0.12
-        back_lift = max(0.0, math.sin(walk_phase + math.pi * 1.2)) * height * 0.12
-        shoulder_counter = -walk_sin * width * 0.08
+        stride_amp = width * (0.22 + move_ratio * 0.10)
+        # front_foot x = center_x + facing*(base_sep + front_stride)
+        # rear_foot  x = center_x - facing*(base_sep + back_stride)
+        # Using the same stride value for both gives proper 180° bipedal opposition:
+        # when sin > 0 the front foot moves forward and the rear foot moves backward.
+        front_stride = walk_sin * stride_amp
+        back_stride = walk_sin * stride_amp
+        # cos-based lift: each foot is airborne for exactly half the cycle,
+        # and the two halves never overlap (only one foot off the ground at a time).
+        front_lift = max(0.0, walk_cos) * height * 0.20
+        back_lift = max(0.0, -walk_cos) * height * 0.20
+        # Knee rises more when foot is in swing phase.
+        front_knee_extra_lift = front_lift * 0.50
+        rear_knee_extra_lift = back_lift * 0.50
+        # Counter-rotate shoulders against the hip/leg swing for a natural gait.
+        shoulder_counter = -walk_sin * width * 0.09
         torso_shift_x = facing * width * (0.03 + move_ratio * 0.03)
         torso_tilt = (-0.05 - walk_sin * 0.02) * facing
         stance_drop = height * 0.02
-        bob += math.sin(walk_phase * 2.0) * 0.45
+        bob += math.sin(walk_phase * 2.0) * WALK_BOB_AMPLITUDE
     elif pose == "jump":
         bob -= JUMP_BOB_OFFSET
         torso_tilt = 0.06 * facing
@@ -515,15 +529,18 @@ def draw_fighter(
             int(rear_shoulder[0] - facing * width * 0.10),
             int(rear_shoulder[1] + height * 0.12),
         )
-    else:
-        arm_swing = walk_sin * width * 0.16 * (0.15 + move_ratio * 0.75)
+    elif pose == "walk":
+        # Natural walk: arms hang at hip level and swing opposite to the legs.
+        arm_swing = walk_sin * width * (0.18 + move_ratio * 0.14)
+        # Front arm swings backward when front leg goes forward (opposite phase).
         front_hand = (
-            int(front_shoulder[0] - facing * (width * (0.16 + 0.05 * move_ratio) + arm_swing)),
-            int(front_shoulder[1] + height * (0.18 + 0.03 * abs(walk_sin))),
+            int(front_hip[0] - facing * arm_swing),
+            int(front_shoulder[1] + height * (0.35 + 0.04 * abs(walk_sin))),
         )
+        # Rear arm swings forward when rear leg goes back (same phase as front leg).
         rear_hand = (
-            int(rear_shoulder[0] + facing * (width * (0.08 + 0.05 * move_ratio) + arm_swing * 0.8)),
-            int(rear_shoulder[1] + height * 0.24),
+            int(rear_hip[0] + facing * arm_swing * 0.85),
+            int(rear_shoulder[1] + height * 0.36),
         )
 
     front_elbow = _joint_midpoint(front_shoulder, front_hand, height * 0.08, facing * width * 0.05)
@@ -548,8 +565,8 @@ def draw_fighter(
             int(bottom_y - height * 0.18),
         )
 
-    front_knee = _joint_midpoint(front_hip, front_foot, height * 0.11, facing * width * 0.06)
-    rear_knee = _joint_midpoint(rear_hip, rear_foot, height * 0.1, -facing * width * 0.05)
+    front_knee = _joint_midpoint(front_hip, front_foot, height * 0.11 + front_knee_extra_lift, facing * width * 0.06)
+    rear_knee = _joint_midpoint(rear_hip, rear_foot, height * 0.1 + rear_knee_extra_lift, -facing * width * 0.05)
 
     # Rear limbs (layered behind torso)
     _draw_bent_limb(
