@@ -160,7 +160,14 @@ class Player:
         if self.hit_stun_timer > 0:
             self.hit_stun_timer -= 1
         else:
-            self.crouching = crouch_key and self.on_ground
+            self.crouching = (
+                (crouch_key and self.on_ground)
+                or (
+                    self.on_ground
+                    and self.is_attacking()
+                    and self.current_attack_type in ("crouch_punch", "crouch_kick")
+                )
+            )
             if not self.crouching:
                 if keys[pygame.K_LEFT]:
                     self.vel_x = -self.speed

@@ -544,9 +544,7 @@ while running:
     progress_target = BOSS_TRIGGER_X if BOSS_TRIGGER_X > 0 else STAGE_CLEAR_X
     progress_pct = int((player.x / progress_target) * 100) if progress_target > 0 else 100
     progress_pct = max(0, min(progress_pct, 100))
-    if player.held_object is not None:
-        weapon_text = f"Carrying: {player.held_object.kind.upper()}"
-    elif player.weapon_name is not None:
+    if player.weapon_name is not None:
         weapon_text = f"Weapon: {player.weapon_name.upper()} ({player.weapon_hits_remaining})"
     else:
         weapon_text = "Weapon: FISTS"
