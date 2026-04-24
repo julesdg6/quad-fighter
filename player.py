@@ -10,6 +10,8 @@ SHADOW_OUTER_INFLATE_Y = 4
 SHADOW_OUTER_COLOR = (30, 30, 30)
 POST_ATTACK_FRAMES = 2
 CHARACTER_SCALE = 2
+COMBO_WINDOW_FRAMES = 24
+GROUND_PRIMARY_COMBO = ("primary", "combo2", "combo3")
 PRIMARY_ATTACK_HITBOX_COLOR = (255, 220, 0)
 SECONDARY_ATTACK_HITBOX_COLOR = (255, 150, 64)
 AERIAL_ATTACK_HITBOX_COLOR = (64, 220, 255)
@@ -88,6 +90,28 @@ ATTACK_PROFILES = {
         "attack_offset": 6,
         "knockback": 60,
     },
+    "combo2": {
+        "anticipation": 2,
+        "strike": 3,
+        "recovery": 5,
+        "cooldown": 12,
+        "damage": 12,
+        "attack_width": 64,
+        "attack_height": 50,
+        "attack_offset": 8,
+        "knockback": 62,
+    },
+    "combo3": {
+        "anticipation": 3,
+        "strike": 4,
+        "recovery": 7,
+        "cooldown": 18,
+        "damage": 18,
+        "attack_width": 76,
+        "attack_height": 56,
+        "attack_offset": 10,
+        "knockback": 80,
+    },
 }
 
 
@@ -151,6 +175,8 @@ class Player:
         self.grab_triggered = False  # single-frame signal: grab key just pressed
         self.throw_triggered = False  # single-frame signal: throw requested this frame
         self.prev_grab_pressed = False
+        self.combo_step = 0
+        self.combo_window_timer = 0
 
     def update(self):
         keys = pygame.key.get_pressed()
@@ -195,6 +221,10 @@ class Player:
 
         self.vel_x = 0.0
         lane_delta = 0.0
+        if self.combo_window_timer > 0:
+            self.combo_window_timer -= 1
+            if self.combo_window_timer == 0:
+                self.combo_step = 0
         if self.hit_stun_timer > 0:
             self.hit_stun_timer -= 1
         else:
@@ -283,16 +313,18 @@ class Player:
                         secondary_pressed
                         and not self.prev_secondary_pressed
                         and self.attack_cooldown_timer <= 0
-                        and not self.is_attacking()
+                        and (not self.is_attacking() or self.combo_window_timer > 0)
                     ):
                         triggered_attack = "secondary"
                     elif (
                         primary_pressed
                         and not self.prev_primary_pressed
                         and self.attack_cooldown_timer <= 0
-                        and not self.is_attacking()
+                        and (not self.is_attacking() or self.combo_window_timer > 0)
                     ):
-                        triggered_attack = "primary"
+                        triggered_attack = GROUND_PRIMARY_COMBO[
+                            min(self.combo_step, len(GROUND_PRIMARY_COMBO) - 1)
+                        ]
             if triggered_attack is not None:
                 profile = ATTACK_PROFILES[triggered_attack]
                 self.current_attack_type = triggered_attack
@@ -316,6 +348,14 @@ class Player:
                 self.attack_id += 1
                 if triggered_attack in ("aerial_light", "aerial_heavy"):
                     self.aerial_attack_used = True
+                if triggered_attack in GROUND_PRIMARY_COMBO:
+                    self.combo_step += 1
+                    if self.combo_step >= len(GROUND_PRIMARY_COMBO):
+                        self.combo_step = 0
+                    self.combo_window_timer = 0
+                else:
+                    self.combo_step = 0
+                    self.combo_window_timer = 0
 
             # Flying kick: lock forward velocity during strike for committed lunge
             # Allow steering backwards to brake; otherwise maintain forward momentum
@@ -342,6 +382,8 @@ class Player:
             self.post_attack_timer -= 1
         if prev_attack_timer > 0 and self.attack_timer == 0:
             self.post_attack_timer = self.post_attack_frames
+            if self.current_attack_type in GROUND_PRIMARY_COMBO[:-1] and self.combo_step > 0:
+                self.combo_window_timer = COMBO_WINDOW_FRAMES
 
         self.attack = self.get_attack_rect() is not None
 
@@ -391,6 +433,10 @@ class Player:
             y_ratio = 0.55
         elif self.current_attack_type == "crouch_kick":
             y_ratio = 0.72
+        elif self.current_attack_type == "combo2":
+            y_ratio = 0.35
+        elif self.current_attack_type == "combo3":
+            y_ratio = 0.50
         else:
             y_ratio = 0.30
         if self.facing > 0:
@@ -488,7 +534,7 @@ class Player:
                 pose = "crouch_punch"
             elif self.current_attack_type == "crouch_kick":
                 pose = "crouch_kick"
-            elif self.current_attack_type == "secondary":
+            elif self.current_attack_type in ("secondary", "combo3"):
                 pose = "kick"
             else:
                 pose = "attack"
@@ -576,7 +622,7 @@ class Player:
             draw_attack_rect = attack_rect.move(-int(camera_x), 0)
             if self.current_attack_type in ("aerial_light", "aerial_heavy"):
                 hitbox_color = AERIAL_ATTACK_HITBOX_COLOR
-            elif self.current_attack_type in ("secondary", "crouch_kick"):
+            elif self.current_attack_type in ("secondary", "crouch_kick", "combo3"):
                 hitbox_color = SECONDARY_ATTACK_HITBOX_COLOR
             else:
                 hitbox_color = PRIMARY_ATTACK_HITBOX_COLOR
