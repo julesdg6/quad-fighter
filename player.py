@@ -1,5 +1,6 @@
 import pygame
 from render import draw_fighter, get_depth_scale
+from combat import KNOCKDOWN_STUN_FRAMES, HIT_STUN_FRAMES as HURT_ANIM_FRAMES
 
 SHADOW_BASE_SCALE = 1.0
 SHADOW_MAX_REDUCTION = 0.5
@@ -105,6 +106,8 @@ class Player:
         self.hit_stun_timer = 0
         self.hurt_flash_timer = 0
         self.hurt_anim_timer = 0
+        self.hit_region = "torso"
+        self.knockdown_timer = 0
         self.facing = 1
         self.max_health = 100
         self.health = self.max_health
@@ -122,6 +125,11 @@ class Player:
             self.hurt_anim_timer -= 1
         if self.hurt_flash_timer > 0:
             self.hurt_flash_timer -= 1
+        if self.knockdown_timer > 0:
+            self.knockdown_timer -= 1
+            # Keep character frozen in knockdown until timer expires
+            self.hit_stun_timer = max(self.hit_stun_timer, 1)
+            self.hurt_anim_timer = max(self.hurt_anim_timer, 1)
         self.vel_x = 0.0
         lane_delta = 0.0
         if self.hit_stun_timer > 0:
@@ -327,8 +335,12 @@ class Player:
         pygame.draw.ellipse(screen, (45, 45, 45), shadow_rect)
 
         body_rect = pygame.Rect(int(draw_x), int(self.y), self.width, self.height)
-        if self.hurt_anim_timer > 0:
+        if self.knockdown_timer > 0:
+            pose = "knockdown"
+            hurt_ratio = min(1.0, self.knockdown_timer / KNOCKDOWN_STUN_FRAMES)
+        elif self.hurt_anim_timer > 0:
             pose = "hurt"
+            hurt_ratio = min(1.0, self.hurt_anim_timer / HURT_ANIM_FRAMES)
         elif not self.on_ground:
             if self.is_attacking() and self.current_attack_type == "aerial_heavy":
                 pose = "aerial_kick"
@@ -336,12 +348,16 @@ class Player:
                 pose = "aerial_attack"
             else:
                 pose = "jump"
+            hurt_ratio = 0.0
         elif self.is_attacking():
             pose = "kick" if self.current_attack_type == "secondary" else "attack"
+            hurt_ratio = 0.0
         elif abs(self.vel_x) > 0.05:
             pose = "walk"
+            hurt_ratio = 0.0
         else:
             pose = "idle"
+            hurt_ratio = 0.0
 
         move_ratio = min(1.0, abs(self.vel_x) / self.speed) if self.speed else 0.0
         if self.attack_duration_frames <= 0:
@@ -389,6 +405,8 @@ class Player:
             attack_ratio=attack_ratio,
             attack_anticipation_end=attack_anticipation_end,
             attack_strike_end=attack_strike_end,
+            hurt_ratio=hurt_ratio,
+            hit_region=self.hit_region,
         )
 
         pygame.draw.line(

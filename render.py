@@ -119,6 +119,7 @@ def draw_fighter(
     phase_offset=0.0,
     attack_anticipation_end=ATTACK_ANTICIPATION_END,
     attack_strike_end=ATTACK_STRIKE_END,
+    hit_region="torso",
 ):
     facing = 1 if facing >= 0 else -1
     clamped_attack_ratio = max(0.0, min(1.0, attack_ratio))
@@ -279,13 +280,43 @@ def draw_fighter(
             attack_extension = 0.4 * settle
     elif pose == "hurt":
         snap = max(0.0, min(1.0, hurt_ratio))
-        torso_shift_x = -facing * width * (0.24 * snap)
-        torso_tilt = -facing * 0.34 * snap
-        front_stride = -facing * width * 0.15
-        back_stride = facing * width * 0.16
-        front_lift = height * 0.1 * snap
-        back_lift = height * 0.16 * snap
-        stance_drop = height * 0.06 * snap
+        if hit_region == "head":
+            # Dramatic snap-back: upper body thrown backward
+            torso_shift_x = -facing * width * (0.36 * snap)
+            torso_tilt = -facing * 0.52 * snap
+            front_stride = -facing * width * 0.10
+            back_stride = facing * width * 0.20
+            front_lift = height * 0.06 * snap
+            back_lift = height * 0.22 * snap
+            stance_drop = height * 0.04 * snap
+        elif hit_region == "legs":
+            # Stumble: body drops, legs buckle
+            torso_shift_x = -facing * width * (0.12 * snap)
+            torso_tilt = -facing * 0.20 * snap
+            front_stride = facing * width * 0.28 * snap
+            back_stride = facing * width * 0.08
+            front_lift = height * 0.22 * snap
+            back_lift = height * 0.06 * snap
+            stance_drop = height * 0.14 * snap
+        else:
+            # Torso: standard knock-back
+            torso_shift_x = -facing * width * (0.24 * snap)
+            torso_tilt = -facing * 0.34 * snap
+            front_stride = -facing * width * 0.15
+            back_stride = facing * width * 0.16
+            front_lift = height * 0.1 * snap
+            back_lift = height * 0.16 * snap
+            stance_drop = height * 0.06 * snap
+    elif pose == "knockdown":
+        snap = max(0.0, min(1.0, hurt_ratio))
+        # Character collapses: heavy backward lean, legs splay forward
+        torso_shift_x = -facing * width * (0.30 * snap)
+        torso_tilt = -facing * 0.70 * snap
+        front_stride = facing * width * 0.42 * snap
+        back_stride = -facing * width * 0.20 * snap
+        front_lift = height * 0.24 * snap
+        back_lift = height * 0.08 * snap
+        stance_drop = height * (0.16 + 0.12 * snap)
     elif pose == "aerial_attack":
         # Light aerial strike – arm extends forward, legs stay tucked in air
         anticipation_end = _clamp(
@@ -464,13 +495,45 @@ def draw_fighter(
             int(rear_shoulder[1] + height * 0.15),
         )
     elif pose == "hurt":
+        if hit_region == "head":
+            # Arms flung back from impact
+            front_hand = (
+                int(front_shoulder[0] - facing * width * 0.28),
+                int(front_shoulder[1] + height * 0.18),
+            )
+            rear_hand = (
+                int(rear_shoulder[0] - facing * width * 0.20),
+                int(rear_shoulder[1] + height * 0.16),
+            )
+        elif hit_region == "legs":
+            # Arms reach down for balance
+            front_hand = (
+                int(front_shoulder[0] + facing * width * 0.06),
+                int(front_shoulder[1] + height * 0.30),
+            )
+            rear_hand = (
+                int(rear_shoulder[0] - facing * width * 0.08),
+                int(rear_shoulder[1] + height * 0.28),
+            )
+        else:
+            # Standard torso hurt: arms pulled back
+            front_hand = (
+                int(front_shoulder[0] - facing * width * 0.18),
+                int(front_shoulder[1] + height * 0.16),
+            )
+            rear_hand = (
+                int(rear_shoulder[0] - facing * width * 0.24),
+                int(rear_shoulder[1] + height * 0.18),
+            )
+    elif pose == "knockdown":
+        # Arms splayed out during collapse
         front_hand = (
-            int(front_shoulder[0] - facing * width * 0.18),
-            int(front_shoulder[1] + height * 0.16),
+            int(front_shoulder[0] + facing * width * 0.24),
+            int(front_shoulder[1] + height * 0.32),
         )
         rear_hand = (
-            int(rear_shoulder[0] - facing * width * 0.24),
-            int(rear_shoulder[1] + height * 0.18),
+            int(rear_shoulder[0] - facing * width * 0.10),
+            int(rear_shoulder[1] + height * 0.34),
         )
     elif pose == "kick":
         # Arms in guard/balance position while leg kicks
