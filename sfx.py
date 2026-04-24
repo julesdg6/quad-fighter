@@ -173,6 +173,23 @@ def _gen_break() -> pygame.Sound:
     return _make_sound(sig * 0.80)
 
 
+def _gen_special() -> pygame.Sound:
+    """Rising charged power burst – special move triggered."""
+    dur = 0.24
+    n = int(dur * SR)
+    t = np.linspace(0, dur, n, dtype=np.float32)
+    rng = np.random.default_rng(99)
+    noise = rng.uniform(-1.0, 1.0, n).astype(np.float32)
+    hp = _hp_filter(noise, 0.75)
+    # Rapidly rising frequency sweep for that "power-up" feel
+    freq = 110.0 * np.exp(t * 9.0) + 90.0
+    freq = np.minimum(freq, 3600.0).astype(np.float32)
+    phase = 2.0 * np.pi * np.cumsum(freq) / SR
+    env = np.exp(-t * 5.0)
+    sig = (hp * 0.38 + np.sin(phase) * 0.62) * env
+    return _make_sound(sig * 0.90)
+
+
 # ── SfxPlayer ─────────────────────────────────────────────────────────────────
 
 class SfxPlayer:
@@ -198,6 +215,7 @@ class SfxPlayer:
         "player_hurt":  _gen_player_hurt,
         "enemy_hurt":   _gen_enemy_hurt,
         "break":        _gen_break,
+        "special":      _gen_special,
     }
 
     def __init__(self):

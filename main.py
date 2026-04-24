@@ -2,7 +2,7 @@ import pygame
 import sys
 import os
 import math
-from player import Player, GRAB_RANGE, CROUCH_DEFENSE_RATIO
+from player import Player, GRAB_RANGE, CROUCH_DEFENSE_RATIO, SPECIAL_MOVES
 from enemy import Enemy, BOSS_MAX_HEALTH
 from combat import check_attack_collision, apply_knockback, get_hit_region
 from objects import EnvironmentObject
@@ -153,6 +153,8 @@ enemies = []
 lock_zone_enemies = []   # enemies from the current locked zone; cleared when all are defeated
 camera_lock_right = None  # world-x of the maximum camera right-edge while a zone is locked
 enemy_sfx_attack_ids: dict = {}  # id(enemy) → last attack_id when SFX was triggered
+special_flash_timer = 0           # frames remaining for on-screen "SPECIAL!" banner
+special_flash_name = ""           # name of the last special move triggered
 
 
 def build_environment_objects():
@@ -265,6 +267,8 @@ while running:
             joystick = None
 
     # Update / hit-stop
+    if special_flash_timer > 0:
+        special_flash_timer -= 1
     if hit_pause_timer > 0:
         hit_pause_timer -= 1
     else:
@@ -363,6 +367,14 @@ while running:
                 sfx.play("aerial")
             elif attack_type in ("secondary", "crouch_kick"):
                 sfx.play("kick")
+            elif attack_type in ("spin_attack", "dash_punch", "dive_kick"):
+                sfx.play("special")
+                special_flash_timer = 50
+                special_flash_name = {
+                    "spin_attack": "SPIN ATTACK",
+                    "dash_punch":  "DASH PUNCH",
+                    "dive_kick":   "DIVE KICK",
+                }.get(attack_type, "SPECIAL")
             else:
                 sfx.play("punch")
             # Weapon pickup: pick up any floor weapon within reach (if hands are free)
@@ -754,6 +766,13 @@ while running:
     if player.combo_step > 0:
         combo_surf = font.render(f"COMBO  x{player.combo_step}", True, current_theme["hud_combo"])
         screen.blit(combo_surf, (WIDTH // 2 - combo_surf.get_width() // 2, 108))
+
+    # Special move banner: fades out over ~50 frames
+    if special_flash_timer > 0:
+        alpha = min(255, special_flash_timer * 6)
+        special_surf = font.render(f"★  {special_flash_name}  ★", True, (200, 64, 255))
+        special_surf.set_alpha(alpha)
+        screen.blit(special_surf, (WIDTH // 2 - special_surf.get_width() // 2, 130))
     if stage_complete or level_transition_timer > 0:
         pulse_base = current_theme["hud_level_pulse"]
         pulse_amount = int(

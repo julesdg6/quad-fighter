@@ -17,6 +17,18 @@ pip install -r requirements.txt
 - C (hold): Crouch
 - C + Z: Crouching punch
 - C + X: Crouching kick
+- G: Grab (then Z to throw)
+
+### Special Moves
+
+| Move | Input | Description |
+|------|-------|-------------|
+| **Spin Attack** | Z + X (simultaneously) | Wide spinning strike that hits both sides |
+| **Dash Punch** | → + Z while running | Lunge forward with a powered straight punch |
+| **Dive Kick** | ↓ + X while airborne | Powerful downward aerial kick |
+
+Special moves deal significantly more damage and knockback than standard attacks.
+Their hitboxes are highlighted in **purple** during the strike window.
 
 ## Running the Game
 
@@ -56,6 +68,10 @@ python main.py
 - Visible lane/floor band for depth readability
 - Procedural named-pose fighter animation (idle/walk/jump/attack/hurt)
 - 60 FPS game loop
+- **Special moves** triggered by simultaneous button combinations:
+  - Spin Attack (Z + X): wide bidirectional AoE
+  - Dash Punch (→ + Z while running): forward lunge
+  - Dive Kick (↓ + X while airborne): powerful downward aerial
 
 ## Next Steps
 
