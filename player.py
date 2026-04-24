@@ -179,12 +179,33 @@ class Player:
         self.combo_step = 0
         self.combo_window_timer = 0
 
-    def update(self):
+    def update(self, extra_input=None, keyboard_map=None):
+        """Update player state.
+
+        Parameters
+        ----------
+        extra_input : dict or None
+            Boolean action flags from an external source (e.g., controller).
+            Keys: ``move_left``, ``move_right``, ``move_up``, ``move_down``,
+            ``jump``, ``punch``, ``kick``, ``crouch``, ``grab``.
+            Each value is OR-ed with the corresponding keyboard input.
+        keyboard_map : dict or None
+            Mapping of action name → pygame key constant used for remapping.
+            Falls back to the hardcoded defaults when None.
+        """
+        if extra_input is None:
+            extra_input = {}
+        kb = keyboard_map or {}
+
         keys = pygame.key.get_pressed()
-        primary_pressed = keys[pygame.K_z]
-        secondary_pressed = keys[pygame.K_x]
-        crouch_key = keys[pygame.K_c]
-        grab_key = keys[pygame.K_g]
+
+        def _key(action, default):
+            return keys[kb.get(action, default)] or bool(extra_input.get(action, False))
+
+        primary_pressed   = _key("punch",  pygame.K_z)
+        secondary_pressed = _key("kick",   pygame.K_x)
+        crouch_key        = _key("crouch", pygame.K_c)
+        grab_key          = _key("grab",   pygame.K_g)
         if self.hurt_anim_timer > 0:
             self.hurt_anim_timer -= 1
         if self.hurt_flash_timer > 0:
@@ -238,19 +259,19 @@ class Player:
                 )
             )
             if not self.crouching:
-                if keys[pygame.K_LEFT]:
+                if _key("move_left", pygame.K_LEFT):
                     self.vel_x = -self.speed
                     self.facing = -1
-                elif keys[pygame.K_RIGHT]:
+                elif _key("move_right", pygame.K_RIGHT):
                     self.vel_x = self.speed
                     self.facing = 1
                 if self.on_ground:
-                    if keys[pygame.K_UP]:
+                    if _key("move_up", pygame.K_UP):
                         lane_delta -= self.lane_speed
-                    elif keys[pygame.K_DOWN]:
+                    elif _key("move_down", pygame.K_DOWN):
                         lane_delta += self.lane_speed
 
-            if keys[pygame.K_SPACE] and self.on_ground and not self.crouching and not self.is_grabbing():
+            if _key("jump", pygame.K_SPACE) and self.on_ground and not self.crouching and not self.is_grabbing():
                 self.vel_y = self.jump_power
                 self.on_ground = False
 
@@ -369,8 +390,9 @@ class Player:
                 strike_start = self.attack_anticipation_frames
                 strike_end = strike_start + self.attack_strike_frames
                 if strike_start <= elapsed < strike_end:
+                    opposite_dir = "move_left" if self.facing > 0 else "move_right"
                     opposite_key = pygame.K_LEFT if self.facing > 0 else pygame.K_RIGHT
-                    if not keys[opposite_key]:
+                    if not _key(opposite_dir, opposite_key):
                         self.vel_x = self.facing * AERIAL_HEAVY_FORWARD_VEL
         self.prev_primary_pressed = primary_pressed
         self.prev_secondary_pressed = secondary_pressed

@@ -392,3 +392,14 @@ class AcidMachine:
             if self._step >= STEPS_PER_BAR:
                 self._step = 0
                 self._evolve()
+
+    def set_volume(self, volume: float) -> None:
+        """Set overall music volume.  *volume* is clamped to 0.0–1.0."""
+        if not self._enabled:
+            return
+        v = max(0.0, min(1.0, volume))
+        self._ch_kick.set_volume(v)
+        self._ch_snare.set_volume(v * 0.90)
+        self._ch_hihat.set_volume(v * 0.70)
+        self._ch_bass.set_volume(v, v * 0.75)
+        self._ch_bass2.set_volume(v * 0.75, v)
