@@ -16,7 +16,9 @@ TELEGRAPH_PULSE_BASE = 90
 TELEGRAPH_PULSE_RANGE = 70
 TELEGRAPH_PULSE_FREQUENCY = 8
 CHARACTER_SCALE = 2
-ENEMY_SEPARATION_DIST = 48  # minimum extra gap between enemy centre-points beyond combined half-widths
+ENEMY_SEPARATION_DIST = 24  # minimum extra gap between enemy centre-points beyond combined half-widths
+MAX_SIMULTANEOUS_ATTACKERS = 2  # how many non-boss enemies may attack at the same time
+APPROACH_OFFSET = 36  # px from player centre that each enemy targets; keeps enemies flanking on both sides
 
 
 ENEMY_ATTACK_PROFILE = {
@@ -128,6 +130,8 @@ class Enemy:
         self.hit_region = "torso"
         self.knockdown_timer = 0
         self.grabbed = False
+        # Which side of the player this enemy occupies: -1 = left flank, +1 = right flank, 0 = direct chase
+        self.approach_side = 0
 
     def update(self, player, enemies=None):
         if self.hurt_flash_timer > 0:
@@ -176,15 +180,20 @@ class Enemy:
                         self.charge_timer = BOSS_CHARGE_DURATION
                         self.charge_cooldown_timer = BOSS_CHARGE_COOLDOWN
 
-            # Attack stagger: non-boss enemies wait if a peer is already mid-attack
-            peer_is_attacking = (
-                not self.is_boss
-                and enemies is not None
-                and any(
-                    e is not self and e.health > 0 and not e.is_boss and e.is_attacking()
-                    for e in enemies
+            # Attack stagger: non-boss enemies wait if enough peers are already mid-attack
+            attacking_peers = (
+                0 if (self.is_boss or enemies is None)
+                else sum(
+                    1 for e in enemies
+                    if e is not self and e.health > 0 and not e.is_boss and e.is_attacking()
                 )
             )
+            peer_is_attacking = attacking_peers >= MAX_SIMULTANEOUS_ATTACKERS
+
+            # Each enemy targets a side-offset position relative to the player so they
+            # naturally flank from both sides instead of all converging on the same point.
+            # approach_side == 0 collapses to player_center_x (direct chase, e.g. boss).
+            target_x = player_center_x + self.approach_side * APPROACH_OFFSET
 
             if not peer_is_attacking and self.should_attack(player):
                 self.attack_timer = self.attack_duration_frames
@@ -195,9 +204,9 @@ class Enemy:
                 self.attack_cooldown_timer = cooldown
                 self.attack_id += 1
                 self.vel_x = 0
-            elif player_center_x > enemy_center_x + 4:
+            elif target_x > enemy_center_x + 4:
                 self.vel_x = effective_speed
-            elif player_center_x < enemy_center_x - 4:
+            elif target_x < enemy_center_x - 4:
                 self.vel_x = -effective_speed
             else:
                 self.vel_x = 0
