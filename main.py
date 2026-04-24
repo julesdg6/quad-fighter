@@ -8,6 +8,7 @@ from combat import check_attack_collision, apply_knockback
 from objects import EnvironmentObject
 from background import generate_background, draw_background_pre_lane, draw_background_post_lane, LEVEL_SEED_MULTIPLIER
 from music import AcidMachine
+from splash import SplashScreen
 
 pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.init()
@@ -181,6 +182,10 @@ def spawn_enemies(player_x, zone):
         enemy.y = enemy.ground_y
         spawned.append(enemy)
     return spawned
+
+# Splash screen (skip automatically when QUAD_FIGHTER_AUTO_EXIT_FRAMES is set, e.g. in CI)
+if QUAD_FIGHTER_AUTO_EXIT_FRAMES == 0:
+    SplashScreen(screen, WIDTH, HEIGHT, FPS).run()
 
 # Main loop
 running = True
