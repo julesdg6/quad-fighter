@@ -370,9 +370,11 @@ class OptionsScreen:
             label_x = cx - 200
             self.screen.blit(label_surf, (label_x, y + 2))
             key_name = _key_name(self.settings.keyboard.get(item["action"], 0))
-            if selected and self._waiting == "key" and self._wait_action == item["action"]:
+            remapping_this = self._waiting == "key" and self._wait_action == item["action"]
+            if remapping_this:
                 key_name = "..."
-            val_surf = self._font_item.render(key_name, True, COL_WAIT if (self._waiting == "key" and self._wait_action == item["action"]) else col)
+            val_col = COL_WAIT if remapping_this else col
+            val_surf = self._font_item.render(key_name, True, val_col)
             self.screen.blit(val_surf, (cx + 60, y + 2))
 
         elif itype == "ctrl_bind":
@@ -381,9 +383,11 @@ class OptionsScreen:
             self.screen.blit(label_surf, (label_x, y + 2))
             btn_idx = self.settings.controller.get(item["action"], -1)
             btn_name = _btn_name(btn_idx) if btn_idx >= 0 else "—"
-            if selected and self._waiting == "button" and self._wait_action == item["action"]:
+            remapping_this = self._waiting == "button" and self._wait_action == item["action"]
+            if remapping_this:
                 btn_name = "..."
-            val_surf = self._font_item.render(btn_name, True, COL_WAIT if (self._waiting == "button" and self._wait_action == item["action"]) else col)
+            val_col = COL_WAIT if remapping_this else col
+            val_surf = self._font_item.render(btn_name, True, val_col)
             self.screen.blit(val_surf, (cx + 60, y + 2))
 
         elif itype == "back":
