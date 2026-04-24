@@ -12,8 +12,11 @@ pip install -r requirements.txt
 
 - Arrow keys: Move (left/right and up/down lane depth)
 - Space: Jump
-- Z: Primary Attack
-- X: Secondary Attack
+- Z: Punch / light attack
+- X: Kick / heavy attack
+- C (hold): Crouch
+- C + Z: Crouching punch
+- C + X: Crouching kick
 
 ## Running the Game
 
