@@ -61,6 +61,28 @@ ATTACK_PROFILES = {
         "attack_offset": 8,
         "knockback": 88,
     },
+    "crouch_punch": {
+        "anticipation": 2,
+        "strike": 3,
+        "recovery": 4,
+        "cooldown": 12,
+        "damage": 8,
+        "attack_width": 48,
+        "attack_height": 36,
+        "attack_offset": 4,
+        "knockback": 44,
+    },
+    "crouch_kick": {
+        "anticipation": 4,
+        "strike": 4,
+        "recovery": 8,
+        "cooldown": 20,
+        "damage": 14,
+        "attack_width": 72,
+        "attack_height": 28,
+        "attack_offset": 6,
+        "knockback": 60,
+    },
 }
 
 
@@ -117,11 +139,13 @@ class Player:
         self.weapon_range_bonus = 0
         self.aerial_attack_used = False
         self.held_object = None  # EnvironmentObject currently being carried
+        self.crouching = False
 
     def update(self):
         keys = pygame.key.get_pressed()
         primary_pressed = keys[pygame.K_z]
         secondary_pressed = keys[pygame.K_x]
+        crouch_key = keys[pygame.K_c]
         if self.hurt_anim_timer > 0:
             self.hurt_anim_timer -= 1
         if self.hurt_flash_timer > 0:
@@ -136,19 +160,21 @@ class Player:
         if self.hit_stun_timer > 0:
             self.hit_stun_timer -= 1
         else:
-            if keys[pygame.K_LEFT]:
-                self.vel_x = -self.speed
-                self.facing = -1
-            elif keys[pygame.K_RIGHT]:
-                self.vel_x = self.speed
-                self.facing = 1
-            if self.on_ground:
-                if keys[pygame.K_UP]:
-                    lane_delta -= self.lane_speed
-                elif keys[pygame.K_DOWN]:
-                    lane_delta += self.lane_speed
+            self.crouching = crouch_key and self.on_ground
+            if not self.crouching:
+                if keys[pygame.K_LEFT]:
+                    self.vel_x = -self.speed
+                    self.facing = -1
+                elif keys[pygame.K_RIGHT]:
+                    self.vel_x = self.speed
+                    self.facing = 1
+                if self.on_ground:
+                    if keys[pygame.K_UP]:
+                        lane_delta -= self.lane_speed
+                    elif keys[pygame.K_DOWN]:
+                        lane_delta += self.lane_speed
 
-            if keys[pygame.K_SPACE] and self.on_ground:
+            if keys[pygame.K_SPACE] and self.on_ground and not self.crouching:
                 self.vel_y = self.jump_power
                 self.on_ground = False
 
@@ -170,6 +196,21 @@ class Player:
                     and not self.aerial_attack_used
                 ):
                     triggered_attack = "aerial_light"
+            elif self.crouching:
+                if (
+                    secondary_pressed
+                    and not self.prev_secondary_pressed
+                    and self.attack_cooldown_timer <= 0
+                    and not self.is_attacking()
+                ):
+                    triggered_attack = "crouch_kick"
+                elif (
+                    primary_pressed
+                    and not self.prev_primary_pressed
+                    and self.attack_cooldown_timer <= 0
+                    and not self.is_attacking()
+                ):
+                    triggered_attack = "crouch_punch"
             else:
                 if (
                     secondary_pressed
@@ -278,6 +319,10 @@ class Player:
             y_ratio = 0.35
         elif self.current_attack_type == "aerial_light":
             y_ratio = 0.25
+        elif self.current_attack_type == "crouch_punch":
+            y_ratio = 0.55
+        elif self.current_attack_type == "crouch_kick":
+            y_ratio = 0.72
         else:
             y_ratio = 0.30
         if self.facing > 0:
@@ -351,7 +396,17 @@ class Player:
                 pose = "jump"
             hurt_ratio = 0.0
         elif self.is_attacking():
-            pose = "kick" if self.current_attack_type == "secondary" else "attack"
+            if self.current_attack_type == "crouch_punch":
+                pose = "crouch_punch"
+            elif self.current_attack_type == "crouch_kick":
+                pose = "crouch_kick"
+            elif self.current_attack_type == "secondary":
+                pose = "kick"
+            else:
+                pose = "attack"
+            hurt_ratio = 0.0
+        elif self.crouching:
+            pose = "crouch"
             hurt_ratio = 0.0
         elif abs(self.vel_x) > 0.05:
             pose = "walk"
@@ -433,7 +488,7 @@ class Player:
             draw_attack_rect = attack_rect.move(-int(camera_x), 0)
             if self.current_attack_type in ("aerial_light", "aerial_heavy"):
                 hitbox_color = AERIAL_ATTACK_HITBOX_COLOR
-            elif self.current_attack_type == "secondary":
+            elif self.current_attack_type in ("secondary", "crouch_kick"):
                 hitbox_color = SECONDARY_ATTACK_HITBOX_COLOR
             else:
                 hitbox_color = PRIMARY_ATTACK_HITBOX_COLOR

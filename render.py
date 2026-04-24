@@ -505,6 +505,82 @@ def draw_fighter(
         stance_drop = height * IDLE_STANCE_DROP_RATIO
         torso_shift_x = base_torso_shift
         torso_tilt = -0.02 * facing
+    elif pose == "crouch":
+        # Deep squat: significant stance drop, wide feet, arms guard low
+        front_stride = width * 0.28
+        back_stride = width * 0.12
+        stance_drop = height * 0.42
+        torso_shift_x = base_torso_shift
+        torso_tilt = 0.04 * facing
+    elif pose == "crouch_punch":
+        # Crouching punch: low stance, front arm thrusts forward
+        anticipation_end = _clamp(
+            attack_anticipation_end,
+            MIN_ATTACK_PHASE_DURATION,
+            MAX_ATTACK_ANTICIPATION_END,
+        )
+        strike_end = _clamp(
+            attack_strike_end,
+            anticipation_end + MIN_ATTACK_PHASE_DURATION,
+            MAX_ATTACK_STRIKE_END,
+        )
+        front_stride = width * 0.22
+        back_stride = width * 0.08
+        stance_drop = height * 0.42
+        if clamped_attack_ratio < anticipation_end:
+            phase = clamped_attack_ratio / anticipation_end
+            torso_shift_x = -facing * width * 0.04 * phase
+            torso_tilt = 0.08 * facing
+            attack_extension = 0.02
+        elif clamped_attack_ratio < strike_end:
+            phase = (clamped_attack_ratio - anticipation_end) / (strike_end - anticipation_end)
+            torso_shift_x = facing * width * (0.04 + 0.18 * phase)
+            torso_tilt = (-0.06 + 0.02 * phase) * facing
+            attack_extension = phase
+        else:
+            phase = (clamped_attack_ratio - strike_end) / max(MIN_PHASE_DIVISOR, 1.0 - strike_end)
+            settle = 1.0 - phase
+            torso_shift_x = facing * width * 0.14 * settle
+            torso_tilt = -0.04 * facing * settle
+            attack_extension = 0.4 * settle
+    elif pose == "crouch_kick":
+        # Low sweeping kick: body stays low, front leg shoots out near ground
+        anticipation_end = _clamp(
+            attack_anticipation_end,
+            MIN_ATTACK_PHASE_DURATION,
+            MAX_ATTACK_ANTICIPATION_END,
+        )
+        strike_end = _clamp(
+            attack_strike_end,
+            anticipation_end + MIN_ATTACK_PHASE_DURATION,
+            MAX_ATTACK_STRIKE_END,
+        )
+        if clamped_attack_ratio < anticipation_end:
+            phase = clamped_attack_ratio / anticipation_end
+            front_stride = -width * (0.06 + 0.14 * phase)
+            back_stride = width * 0.16
+            front_lift = height * 0.04 * phase
+            stance_drop = height * (0.38 + 0.06 * phase)
+            torso_tilt = 0.06 * facing
+        elif clamped_attack_ratio < strike_end:
+            phase = (clamped_attack_ratio - anticipation_end) / (strike_end - anticipation_end)
+            # Leg sweeps out low, barely off the ground
+            front_stride = width * (0.18 + 0.38 * phase)
+            back_stride = -width * 0.06
+            front_lift = height * 0.04
+            torso_shift_x = facing * width * 0.06 * phase
+            torso_tilt = 0.04 * facing
+            stance_drop = height * 0.44
+            attack_extension = phase
+        else:
+            phase = (clamped_attack_ratio - strike_end) / max(MIN_PHASE_DIVISOR, 1.0 - strike_end)
+            settle = 1.0 - phase
+            front_stride = width * 0.30 * settle
+            back_stride = -width * 0.04 * settle
+            front_lift = height * 0.03 * settle
+            stance_drop = height * (0.38 + 0.06 * settle)
+            torso_shift_x = facing * width * 0.04 * settle
+            attack_extension = 0.3 * settle
     torso_tilt += base_torso_tilt
 
     torso_center_x = center_x + torso_shift_x
@@ -679,6 +755,38 @@ def draw_fighter(
         rear_hand = (
             int(rear_shoulder[0] - facing * width * 0.10),
             int(rear_shoulder[1] + height * 0.12),
+        )
+    elif pose == "crouch":
+        # Low guard: both hands tucked at belly/hip level
+        front_hand = (
+            int(front_shoulder[0] + facing * width * 0.12),
+            int(front_shoulder[1] + height * 0.30),
+        )
+        rear_hand = (
+            int(rear_shoulder[0] - facing * width * 0.08),
+            int(rear_shoulder[1] + height * 0.28),
+        )
+    elif pose == "crouch_punch":
+        # Front arm extends forward at belly level; rear arm guards
+        attack_reach = width * (ATTACK_BASE_REACH + ATTACK_REACH_EXTENSION * attack_extension)
+        front_hand = (
+            int(front_shoulder[0] + facing * attack_reach),
+            int(front_shoulder[1] + height * (0.26 - attack_extension * 0.06)),
+        )
+        rear_hand = (
+            int(rear_shoulder[0] - facing * width * 0.18),
+            int(rear_shoulder[1] + height * 0.28),
+        )
+    elif pose == "crouch_kick":
+        # Arms balanced low while front leg sweeps out
+        arm_guard = min(1.0, clamped_attack_ratio / max(0.01, attack_anticipation_end))
+        front_hand = (
+            int(front_shoulder[0] + facing * width * 0.10),
+            int(front_shoulder[1] + height * (0.26 + 0.08 * arm_guard)),
+        )
+        rear_hand = (
+            int(rear_shoulder[0] - facing * width * 0.06),
+            int(rear_shoulder[1] + height * 0.24),
         )
     elif pose == "walk":
         # Natural walk: arms hang at hip level and swing opposite to the legs.

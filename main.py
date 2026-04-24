@@ -141,7 +141,6 @@ def build_environment_objects():
 
 environment_objects = build_environment_objects()
 break_effects = []
-prev_grab_pressed = False
 
 acid = AcidMachine()
 
@@ -276,36 +275,6 @@ while running:
                         range_bonus=stats["range"],
                     )
                     environment_objects.remove(picked_weapon)
-
-        # Grab / throw with C key (edge-triggered)
-        grab_keys = pygame.key.get_pressed()
-        grab_pressed = grab_keys[pygame.K_c]
-        if grab_pressed and not prev_grab_pressed and not player.is_attacking():
-            if player.held_object is not None:
-                # Throw the held object
-                held = player.held_object
-                player.held_object = None
-                held.thrown = True
-                held.solid = False
-                held.vel_x = player.facing * THROW_VEL_X
-                held.vel_y = THROW_VEL_Y
-                held.thrower = player
-                # Re-add to environment_objects so it can hit enemies
-                environment_objects.append(held)
-            else:
-                # Attempt to lift a nearby crate or barrel
-                lift_rect = player.get_rect().inflate(60, 24)
-                for obj in list(environment_objects):
-                    if obj.kind not in ("crate", "barrel"):
-                        continue
-                    if obj.thrown:
-                        continue
-                    if lift_rect.colliderect(obj.get_rect()):
-                        player.held_object = obj
-                        # Remove from environment while being held
-                        environment_objects.remove(obj)
-                        break
-        prev_grab_pressed = grab_pressed
 
         # Thrown object physics + enemy/ground collision
         for obj in list(environment_objects):
@@ -576,11 +545,11 @@ while running:
     progress_pct = int((player.x / progress_target) * 100) if progress_target > 0 else 100
     progress_pct = max(0, min(progress_pct, 100))
     if player.held_object is not None:
-        weapon_text = f"Carrying: {player.held_object.kind.upper()}  [C]=throw"
+        weapon_text = f"Carrying: {player.held_object.kind.upper()}"
     elif player.weapon_name is not None:
         weapon_text = f"Weapon: {player.weapon_name.upper()} ({player.weapon_hits_remaining})"
     else:
-        weapon_text = "Weapon: FISTS  [C]=grab"
+        weapon_text = "Weapon: FISTS"
     hud_text = (
         f"Lvl: {level_number}   {enemy_status}   Stage: {progress_pct}%   {weapon_text}"
     )
