@@ -9,10 +9,27 @@ from objects import EnvironmentObject
 from background import generate_background, draw_background_pre_lane, draw_background_post_lane, LEVEL_SEED_MULTIPLIER
 from music import AcidMachine
 from splash import SplashScreen
+from options import OptionsScreen
+from settings import Settings
 from theme import get_theme, next_theme_name
 
 pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.init()
+pygame.joystick.init()
+
+# Load persistent settings
+settings = Settings()
+settings.load()
+
+# Detect first connected joystick (Xbox controller or similar)
+def _init_joystick():
+    if pygame.joystick.get_count() > 0:
+        joy = pygame.joystick.Joystick(0)
+        joy.init()
+        return joy
+    return None
+
+joystick = _init_joystick()
 
 # Configuration
 WIDTH, HEIGHT = 800, 600
@@ -211,9 +228,15 @@ def spawn_enemies(player_x, zone, camera_x=0):
         spawned.append(enemy)
     return spawned
 
-# Splash screen (skip automatically when QUAD_FIGHTER_AUTO_EXIT_FRAMES is set, e.g. in CI)
+# Splash / options state machine (skip when running headless CI)
 if QUAD_FIGHTER_AUTO_EXIT_FRAMES == 0:
-    SplashScreen(screen, WIDTH, HEIGHT, FPS).run()
+    while True:
+        result = SplashScreen(screen, WIDTH, HEIGHT, FPS, joystick=joystick).run()
+        if result == "options":
+            OptionsScreen(screen, WIDTH, HEIGHT, FPS, settings, joystick=joystick).run(acid)
+            acid.set_volume(settings.music_volume / 100.0)
+        else:
+            break  # "game" – proceed to gameplay
 
 # Main loop
 running = True
@@ -231,13 +254,18 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        elif event.type == pygame.JOYDEVICEADDED:
+            joystick = _init_joystick()
+        elif event.type == pygame.JOYDEVICEREMOVED:
+            joystick = None
 
     # Update / hit-stop
     if hit_pause_timer > 0:
         hit_pause_timer -= 1
     else:
         prev_player_x = player.x
-        player.update()
+        ctrl_input = settings.read_controller(joystick)
+        player.update(extra_input=ctrl_input, keyboard_map=settings.keyboard)
         player_rect = player.get_rect()
 
         # Grab attempt: find closest alive, non-boss enemy within grab range
