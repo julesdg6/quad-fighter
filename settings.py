@@ -21,6 +21,19 @@ DEFAULT_KEYBOARD = {
     "start_pause": pygame.K_RETURN,
 }
 
+# Player 2 keyboard defaults (WASD-based, does not conflict with P1)
+DEFAULT_KEYBOARD_P2 = {
+    "move_left":   pygame.K_a,
+    "move_right":  pygame.K_d,
+    "move_up":     pygame.K_w,
+    "move_down":   pygame.K_s,
+    "jump":        pygame.K_q,
+    "punch":       pygame.K_r,
+    "kick":        pygame.K_f,
+    "crouch":      pygame.K_e,
+    "grab":        pygame.K_t,
+}
+
 # Controller: action name → button index (standard Xbox layout via pygame)
 DEFAULT_CONTROLLER = {
     "jump":        0,   # A
@@ -60,8 +73,9 @@ class Settings:
     def __init__(self):
         self.music_volume: int = 70   # 0–100
         self.sfx_volume:   int = 80   # 0–100
-        self.keyboard:  dict = dict(DEFAULT_KEYBOARD)
-        self.controller: dict = dict(DEFAULT_CONTROLLER)
+        self.keyboard:    dict = dict(DEFAULT_KEYBOARD)
+        self.keyboard_p2: dict = dict(DEFAULT_KEYBOARD_P2)
+        self.controller:  dict = dict(DEFAULT_CONTROLLER)
 
     # ── Persistence ───────────────────────────────────────────────────────────
 
@@ -78,6 +92,10 @@ class Settings:
                 for action, key_val in data["keyboard"].items():
                     if action in self.keyboard:
                         self.keyboard[action] = int(key_val)
+            if "keyboard_p2" in data:
+                for action, key_val in data["keyboard_p2"].items():
+                    if action in self.keyboard_p2:
+                        self.keyboard_p2[action] = int(key_val)
             if "controller" in data:
                 for action, btn_val in data["controller"].items():
                     if action in self.controller:
@@ -91,6 +109,7 @@ class Settings:
             "music_volume": self.music_volume,
             "sfx_volume":   self.sfx_volume,
             "keyboard":     dict(self.keyboard),
+            "keyboard_p2":  dict(self.keyboard_p2),
             "controller":   dict(self.controller),
         }
         try:

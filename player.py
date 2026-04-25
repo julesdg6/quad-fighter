@@ -232,6 +232,7 @@ class Player:
         self.combo_step = 0
         self.combo_window_timer = 0
         self.invincible_timer = 0
+        self.palette_variant = "player"  # set to "player2" for the second player
 
     def update(self, extra_input=None, keyboard_map=None):
         """Update player state.
@@ -697,7 +698,7 @@ class Player:
             self.attack_anticipation_frames + self.attack_strike_frames
         ) / self.attack_duration_frames
         if theme is not None:
-            palette = build_palette(theme, "player", hurt=self.hurt_flash_timer > 0)
+            palette = build_palette(theme, self.palette_variant, hurt=self.hurt_flash_timer > 0)
         else:
             hurt_flash = self.hurt_flash_timer > 0
             palette = {
