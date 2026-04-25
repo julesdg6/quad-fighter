@@ -92,6 +92,31 @@ _BOSS_COL    = (200,  80, 180)
 _OBS_COL     = (90,  180,  60)
 _HIT_COL     = (255, 230,  50)
 
+# Rival biker colour roster (random per enemy)
+_ENM_COLORS = [(190, 55, 55), (210, 120, 40), (130, 60, 200), (40, 170, 85)]
+
+# Rival biker alongside behaviour
+_ALONGSIDE_Z_RANGE   = 200.0   # z-distance to trigger alongside state
+_ALONGSIDE_DURATION  = 210     # frames to ride alongside before re-positioning
+_ENEMY_ALONGSIDE_DRIFT = 44.0  # lateral offset (world units) when riding beside
+
+# Ramming / bike contact
+_RAM_X_RANGE    = 30.0
+_RAM_Z_RANGE    = 55.0
+_RAM_DAMAGE     = 6
+_RAM_SPEED_LOSS = 32.0
+
+# Wobble
+_PLAYER_WOBBLE_FRAMES = 35
+_ENEMY_WOBBLE_FRAMES  = 20
+
+# Crash animation
+_CRASH_DURATION = 65   # frames before crashed enemy is removed
+
+# Spawn geometry
+_SPAWN_RANGE_X  = 55.0   # max lateral x for random enemy spawns
+_SPAWN_FLANK_X  = 52.0   # paired-flanker x offset
+
 # Palette matching the main game's player character (karate fighter)
 _PLAYER_PALETTE = {
     "chest":           (236, 236, 240),
@@ -145,23 +170,67 @@ class _Enemy:
         self.hit_flash = 0      # flash-colour frames remaining
         self.defeated  = False
         self.passed    = False  # went behind the player
+        # Road Rash combat additions
+        self.color           = _BOSS_COL if is_boss else random.choice(_ENM_COLORS)
+        self.state           = "approach"   # "approach" / "alongside" / "crash"
+        self.alongside_timer = 0
+        self.alongside_side  = 0            # -1 player-left, +1 player-right
+        self.wobble          = 0            # wobble frames remaining
+        self.crash_timer     = 0
+        self.crash_lean      = 0
 
     def update(self, dt, fwd_speed, player_wx, player_wz):
-        # Close the distance
-        self.wz -= (self.speed + fwd_speed) * dt
+        # ── Crash animation ───────────────────────────────────────────────────
+        if self.state == "crash":
+            self.crash_timer -= 1
+            self.crash_lean  += 4
+            self.wz          += fwd_speed * 0.3 * dt   # recede slowly
+            if self.hit_flash > 0:
+                self.hit_flash -= 1
+            if self.crash_timer <= 0:
+                self.defeated = True
+            return
 
-        # Drift laterally toward player when close
-        if self.wz < _Z_NEAR * 5:
-            side_offset = 32.0 if self.wx >= player_wx else -32.0
-            target_wx   = player_wx + side_offset
-            diff        = target_wx - self.wx
-            step        = min(abs(diff), 55.0 * dt)
-            self.wx    += step * (1.0 if diff > 0 else -1.0)
-
+        if self.wobble > 0:
+            self.wobble -= 1
         if self.hit_flash > 0:
             self.hit_flash -= 1
 
-        # Attack window
+        # ── Alongside: ride beside player for melee combat ────────────────────
+        if self.state == "alongside":
+            # Maintain depth near player
+            target_z = player_wz + self.alongside_side * 12.0
+            self.wz  += (target_z - self.wz) * 2.5 * dt
+            # Drift to target side position
+            target_wx = player_wx + self.alongside_side * _ENEMY_ALONGSIDE_DRIFT
+            diff      = target_wx - self.wx
+            step      = min(abs(diff), 75.0 * dt)
+            self.wx  += step * (1.0 if diff > 0 else -1.0)
+            self.alongside_timer -= 1
+            if self.alongside_timer <= 0:
+                # Re-approach from behind
+                self.state = "approach"
+                self.wz   += fwd_speed * 1.8
+        else:
+            # ── Approach: close distance from far ahead ───────────────────────
+            self.wz -= (self.speed + fwd_speed) * dt
+            # Drift toward player side when close
+            if self.wz < _Z_NEAR * 5:
+                side_offset = (_ENEMY_ALONGSIDE_DRIFT
+                               if self.wx >= player_wx
+                               else -_ENEMY_ALONGSIDE_DRIFT)
+                target_wx   = player_wx + side_offset
+                diff        = target_wx - self.wx
+                step        = min(abs(diff), 55.0 * dt)
+                self.wx    += step * (1.0 if diff > 0 else -1.0)
+            # Transition to alongside when close enough in z
+            if (abs(self.wz - player_wz) < _ALONGSIDE_Z_RANGE
+                    and self.wz >= player_wz - 30):
+                self.state           = "alongside"
+                self.alongside_timer = _ALONGSIDE_DURATION
+                self.alongside_side  = 1 if self.wx >= player_wx else -1
+
+        # ── Attack window ─────────────────────────────────────────────────────
         near_z = abs(self.wz - player_wz) < _ENEMY_ATK_Z_RANGE
         near_x = abs(self.wx - player_wx) < _ENEMY_ATK_X_RANGE
         if near_z and near_x:
@@ -181,7 +250,7 @@ class _Enemy:
                 self.attacking = False
                 self.atk_frame = 0
 
-        if self.wz < _Z_NEAR - 90:
+        if self.wz < _Z_NEAR - 90 and self.state != "alongside":
             self.passed = True
 
 
@@ -392,15 +461,31 @@ def _draw_road(screen, width, height, cx, road_offset, curve=0.0):
 
 # ── Bike / rider rendering ────────────────────────────────────────────────────
 
-def _draw_bike(screen, sx, sy, scale, color, facing, lean=0, draw_rider=True):
+def _draw_bike(screen, sx, sy, scale, color, facing, lean=0, atk_side=0,
+               crashed=False, draw_rider=True):
     """Draw a polygon motorcycle + rider.
 
-    facing:  1 = front-on (enemy approaching),  -1 = rear view (player)
-    lean:   -1 / 0 / 1  – steering lean direction
+    facing:     1 = front-on (enemy approaching),  -1 = rear view (player)
+    lean:      -1 / 0 / 1  – steering lean direction
+    atk_side:  -1 = left attack, 0 = none, +1 = right attack
+    crashed:    True = draw fallen bike silhouette
+    draw_rider: False = omit the polygon rider (use when drawing a custom character)
     """
 
     def s(v):
         return max(1, int(v * scale))
+
+    if crashed:
+        # Fallen bike – horizontal silhouette with spark trail
+        dark = tuple(max(0, c - 55) for c in color)
+        w, h = s(22), s(7)
+        pygame.draw.ellipse(screen, dark, (sx - w, sy - h // 2, w * 2, h))
+        pygame.draw.circle(screen, color, (sx + s(6), sy - s(4)), s(5))
+        for spx, spy_off in ((-s(10), s(2)), (-s(4), s(3)),
+                              (s(3), s(1)), (s(10), s(2))):
+            pygame.draw.circle(screen, (255, 190, 30),
+                               (sx + spx, sy - spy_off), max(1, s(2)))
+        return
 
     lx     = lean * s(4)             # lateral lean offset (pixels)
     dark   = tuple(max(0, c - 55) for c in color)
@@ -452,13 +537,17 @@ def _draw_bike(screen, sx, sy, scale, color, facing, lean=0, draw_rider=True):
                              (bx + tx_off, frame_base - s(1), s(4), s(2)))
 
         # ── Rider ────────────────────────────────────────────────────────────
+        # These coordinates are needed for attack arm even when rider is hidden
+        hip_y      = seat_y + s(1)
+        fwd        = s(8)
+        t_top_y    = hip_y - s(17)
+        arm_root_x = bx - s(3) - fwd // 2
+        arm_root_y = t_top_y + s(4)
+
         if draw_rider:
-            hip_y = seat_y + s(1)
-            fwd   = s(8)            # forward lean of the torso
+            t_top_x = bx - fwd
 
             # Torso
-            t_top_x = bx - fwd
-            t_top_y = hip_y - s(17)
             pygame.draw.polygon(screen, color, [
                 (bx - s(6),       hip_y),
                 (bx + s(6),       hip_y),
@@ -484,8 +573,6 @@ def _draw_bike(screen, sx, sy, scale, color, facing, lean=0, draw_rider=True):
                              (bar_x + bar_hw, bar_y), max(1, s(2)))
 
             # Arms
-            arm_root_x = bx - s(3) - fwd // 2
-            arm_root_y = t_top_y + s(4)
             pygame.draw.line(screen, color,
                              (arm_root_x, arm_root_y),
                              (bar_x - bar_hw // 2, bar_y), max(1, s(2)))
@@ -499,6 +586,24 @@ def _draw_bike(screen, sx, sy, scale, color, facing, lean=0, draw_rider=True):
                 pygame.draw.line(screen, color,
                                  (bx + side * s(5), hip_y), knee,
                                  max(1, s(2)))
+
+        # Extended attack arm (Z = left, X = right)
+        if atk_side == -1:
+            ext_x = bx - s(30)
+            ext_y = arm_root_y - s(4)
+            pygame.draw.line(screen, (230, 220, 80),
+                             (arm_root_x, arm_root_y), (ext_x, ext_y),
+                             max(1, s(3)))
+            pygame.draw.circle(screen, (240, 215, 150),
+                               (ext_x, ext_y), max(2, s(4)))
+        elif atk_side == 1:
+            ext_x = bx + s(30)
+            ext_y = arm_root_y - s(4)
+            pygame.draw.line(screen, (230, 220, 80),
+                             (arm_root_x + s(6), arm_root_y), (ext_x, ext_y),
+                             max(1, s(3)))
+            pygame.draw.circle(screen, (240, 215, 150),
+                               (ext_x, ext_y), max(2, s(4)))
 
     else:
         # ── Front view (enemy) ───────────────────────────────────────────────
@@ -574,6 +679,17 @@ def _draw_bike(screen, sx, sy, scale, color, facing, lean=0, draw_rider=True):
                                  (fx + side * s(5), bar_y), knee,
                                  max(1, s(2)))
 
+        # Extended attack arm (visible when enemy swipes at player)
+        if atk_side != 0:
+            ext_x  = fx + atk_side * s(26)
+            ext_y  = arm_y - s(4)
+            root_x = fx + atk_side * s(4)
+            pygame.draw.line(screen, (230, 220, 80),
+                             (root_x, arm_y), (ext_x, ext_y),
+                             max(1, s(3)))
+            pygame.draw.circle(screen, (240, 215, 150),
+                               (ext_x, ext_y), max(2, s(3)))
+
 
 def _draw_obstacle(screen, sx, sy, scale, kind):
     """Draw a road obstacle at (sx, sy) with depth scale."""
@@ -603,6 +719,27 @@ def _draw_obstacle(screen, sx, sy, scale, kind):
         pygame.draw.line(screen, (240, 220, 0),
                          (sx - s(3), sy - s(4)), (sx + s(3), sy - s(4)),
                          max(1, s(1)))
+    elif kind == "truck":
+        w = s(22)
+        h = s(12)
+        pygame.draw.rect(screen, (78, 82, 98), (sx - w, sy - h, w * 2, h))
+        # Cab
+        pygame.draw.rect(screen, (98, 102, 118),
+                         (sx - s(9), sy - h - s(8), s(18), s(8)))
+        # Windshield
+        pygame.draw.rect(screen, (50, 140, 200),
+                         (sx - s(6), sy - h - s(6), s(12), s(4)))
+        # Wheels
+        for ox in (-w - s(2), w - s(10)):
+            pygame.draw.ellipse(screen, (55, 55, 60),
+                                (sx + ox, sy - s(4), s(10), s(4)))
+    elif kind == "oil":
+        # Oil slick – dark oval with faint sheen
+        ow, oh = s(22), s(7)
+        pygame.draw.ellipse(screen, (8, 10, 16),
+                            (sx - ow, sy - oh, ow * 2, oh * 2))
+        pygame.draw.ellipse(screen, (25, 20, 40),
+                            (sx - ow // 2, sy - oh // 2, ow, oh))
     else:   # barrier / default
         w = s(14)
         h = s(5)
@@ -672,6 +809,7 @@ class MotoLevel:
         self.player_hp      = _PLAYER_MAX_HP
         self._invuln        = 0
         self._lean          = 0
+        self._player_wobble = 0   # wobble frames remaining after hit/ram
 
         self._atk_l_timer   = 0    # frames left on left-attack arc
         self._atk_r_timer   = 0
@@ -692,19 +830,24 @@ class MotoLevel:
 
     def _build_schedule(self):
         sched = []
-        # Regular enemy waves every ~350 world units
+        # Regular enemy waves
         for d in range(400, _TARGET_DIST, 340):
-            wx = random.uniform(-50.0, 50.0)
+            wx = random.uniform(-_SPAWN_RANGE_X, _SPAWN_RANGE_X)
             sched.append({"dist": d, "type": "enemy", "wx": wx})
-        # Some grouped waves (two enemies close together)
+        # Paired flankers (one from each side)
         for d in range(700, _TARGET_DIST, 520):
-            sched.append({"dist": d,      "type": "enemy", "wx":  45.0})
-            sched.append({"dist": d + 20, "type": "enemy", "wx": -45.0})
-        # Obstacles
-        obs_kinds = ["cone", "cone", "barrier", "car"]
-        for d in range(500, _TARGET_DIST, 200):
-            wx   = random.choice([-48.0, 0.0, 48.0])
+            sched.append({"dist": d,      "type": "enemy", "wx":  _SPAWN_FLANK_X})
+            sched.append({"dist": d + 30, "type": "enemy", "wx": -_SPAWN_FLANK_X})
+        # Solo flankers from the far edge
+        for d in range(950, _TARGET_DIST, 460):
+            wx = random.choice([-72.0, -60.0, 60.0, 72.0])
+            sched.append({"dist": d, "type": "enemy", "wx": wx})
+        # Obstacles (trucks and oil patches added)
+        obs_kinds = ["cone", "cone", "barrier", "car", "truck", "truck", "oil"]
+        for d in range(500, _TARGET_DIST, 180):
+            wx   = random.choice([-_SPAWN_FLANK_X, -20.0, 0.0, 20.0, _SPAWN_FLANK_X])
             kind = random.choice(obs_kinds)
+            sched.append({"dist": d, "type": "obstacle", "wx": wx, "kind": kind})
             sched.append({"dist": d, "type": "obstacle", "wx": wx, "kind": kind})
         # Boss near the end
         sched.append({"dist": _TARGET_DIST - 300, "type": "boss", "wx": 0.0})
@@ -784,6 +927,8 @@ class MotoLevel:
 
         if self._invuln > 0:
             self._invuln -= 1
+        if self._player_wobble > 0:
+            self._player_wobble -= 1
 
         # Spawn scheduled entities
         self._process_spawns()
@@ -792,12 +937,30 @@ class MotoLevel:
         surviving = []
         for e in self._enemies:
             e.update(dt, self._fwd_speed, self.player_wx, self.player_wz)
-            self._check_player_hits_enemy(e)
-            if not e.defeated and not e.passed:
-                self._check_enemy_hits_player(e)
+            if e.state != "crash":
+                self._check_player_hits_enemy(e)
+                if not e.defeated and not e.passed:
+                    self._check_enemy_hits_player(e)
             if not e.defeated and not e.passed:
                 surviving.append(e)
         self._enemies = surviving
+
+        # Ramming: close bike contact causes wobble and damage
+        if self._invuln <= 0:
+            for e in self._enemies:
+                if e.state == "crash":
+                    continue
+                if (abs(e.wz - self.player_wz) < _RAM_Z_RANGE
+                        and abs(e.wx - self.player_wx) < _RAM_X_RANGE):
+                    push = 1 if e.wx >= self.player_wx else -1
+                    e.wx     += push * 20.0
+                    e.wobble  = max(e.wobble, _ENEMY_WOBBLE_FRAMES)
+                    self._player_wobble = max(self._player_wobble, _PLAYER_WOBBLE_FRAMES)
+                    self._fwd_speed = max(_MIN_SPEED, self._fwd_speed - _RAM_SPEED_LOSS)
+                    self.player_hp -= _RAM_DAMAGE
+                    self._invuln    = _PLAYER_INVULN // 2
+                    self.sfx.play("impact")
+                    break
 
         # Update + resolve obstacles
         remaining = []
@@ -806,13 +969,24 @@ class MotoLevel:
             if obs.wz < _Z_NEAR - 60:
                 continue                   # passed behind
             # Collision
-            if abs(obs.wz - self.player_wz) < 60.0:
-                if abs(obs.wx - self.player_wx) < _OBS_HALF_W + 20.0:
-                    if self._invuln <= 0:
-                        self.player_hp -= _OBS_DAMAGE
-                        self._invuln    = _PLAYER_INVULN
-                        self.sfx.play("player_hurt")
-                    continue  # remove obstacle on contact
+            x_rng = _OBS_HALF_W + (28.0 if obs.kind == "truck" else 20.0)
+            if (abs(obs.wz - self.player_wz) < 60.0
+                    and abs(obs.wx - self.player_wx) < x_rng):
+                if obs.kind == "oil":
+                    # Oil: wobble + speed loss, no damage
+                    self._player_wobble = max(self._player_wobble,
+                                             _PLAYER_WOBBLE_FRAMES * 2)
+                    self._fwd_speed = max(_MIN_SPEED,
+                                         self._fwd_speed - _RAM_SPEED_LOSS * 1.5)
+                    continue
+                if self._invuln <= 0:
+                    dmg = _OBS_DAMAGE + (10 if obs.kind == "truck" else 0)
+                    self.player_hp     -= dmg
+                    self._invuln        = _PLAYER_INVULN
+                    self._player_wobble = max(self._player_wobble,
+                                             _PLAYER_WOBBLE_FRAMES)
+                    self.sfx.play("player_hurt")
+                    continue
             remaining.append(obs)
         self._obstacles = remaining
 
@@ -867,9 +1041,9 @@ class MotoLevel:
     def _land_hit(self, enemy, is_left):
         enemy.hp       -= _ATK_DAMAGE
         enemy.hit_flash = 10
-        enemy.wz       += _ENEMY_KNOCKBACK_Z      # knocked back (deeper)
+        enemy.wobble    = _ENEMY_WOBBLE_FRAMES
         sx, sy, _       = _proj(enemy.wx, max(enemy.wz, _Z_NEAR), self.cx)
-        self._hit_flashes.append((sx, sy, 10))
+        self._hit_flashes.append((sx, sy, 12))
         self.sfx.play("impact")
         self.sfx.play("enemy_hurt")
         if is_left:
@@ -877,7 +1051,14 @@ class MotoLevel:
         else:
             self._atk_r_timer = 0
         if enemy.hp <= 0:
-            enemy.defeated = True
+            # Trigger crash animation; defeated is set when timer expires
+            enemy.state       = "crash"
+            enemy.crash_timer = _CRASH_DURATION
+            enemy.crash_lean  = 0
+        else:
+            # Knocked back – re-enter approach
+            enemy.wz   += _ENEMY_KNOCKBACK_Z
+            enemy.state = "approach"
 
     def _check_enemy_hits_player(self, enemy):
         if not enemy.attacking or self._invuln > 0:
@@ -887,8 +1068,9 @@ class MotoLevel:
         z_ok = abs(enemy.wz - self.player_wz) < _ENEMY_ATK_Z_RANGE
         x_ok = abs(enemy.wx - self.player_wx) < _ENEMY_ATK_X_RANGE
         if z_ok and x_ok:
-            self.player_hp -= _ENEMY_ATK_DAMAGE
-            self._invuln    = _PLAYER_INVULN
+            self.player_hp      -= _ENEMY_ATK_DAMAGE
+            self._invuln         = _PLAYER_INVULN
+            self._player_wobble  = max(self._player_wobble, _PLAYER_WOBBLE_FRAMES)
             self.sfx.play("player_hurt")
             self.sfx.play("impact")
 
@@ -905,6 +1087,12 @@ class MotoLevel:
         self._draw_player()
         self._draw_hit_flashes()
         self._draw_hud()
+
+    # ── Draw helpers ──────────────────────────────────────────────────────────
+
+    def _wobble_lean(self):
+        """Return ±1 lean for wobble oscillation (based on current frame)."""
+        return 1 if (self._frame // 3) % 2 == 0 else -1
 
     def _draw_entities(self):
         # Gather all visible entities and sort far → near for painter's order
@@ -924,14 +1112,31 @@ class MotoLevel:
                 elif ent.is_boss:
                     color = _BOSS_COL
                 else:
-                    color = _ENM_COL
+                    color = ent.color
+
+                is_crashed = ent.state == "crash"
+
+                # Wobble lean (rapid oscillation)
+                lean = 0
+                if ent.wobble > 0:
+                    lean = self._wobble_lean()
+                if is_crashed:
+                    lean = min(ent.crash_lean // 4, 8)
+
+                # Attack arm side
+                atk_side = 0
+                if ent.attacking and ent.atk_frame > 4 and not is_crashed:
+                    atk_side = 1 if ent.wx >= self.player_wx else -1
+
                 lunge = 0
-                if ent.attacking:
+                if ent.attacking and not is_crashed:
                     lunge = int(6 * sc * (1 if ent.wx >= self.player_wx else -1))
-                _draw_bike(self.screen, sx + lunge, sy, sc, color, 1)
+
+                _draw_bike(self.screen, sx + lunge, sy, sc, color, 1,
+                           lean=lean, atk_side=atk_side, crashed=is_crashed)
 
                 # Boss HP bar
-                if ent.is_boss:
+                if ent.is_boss and not is_crashed:
                     bw = max(6, int(52 * sc))
                     bh = max(2, int(5 * sc))
                     bx = sx - bw // 2
@@ -948,7 +1153,20 @@ class MotoLevel:
         # Flicker when invulnerable
         if self._invuln > 0 and (self._frame // 4) % 2 == 0:
             return
-        # Attack arm indicators
+
+        # Effective lean: wobble overrides steering
+        lean = self._lean
+        if self._player_wobble > 0:
+            lean = self._wobble_lean()
+
+        # Attack side for arm-extension visual
+        atk_side = 0
+        if self._atk_l_timer > 0:
+            atk_side = -1
+        elif self._atk_r_timer > 0:
+            atk_side = 1
+
+        # Attack arc indicator lines (screen-space overlay)
         if self._atk_l_timer > 0:
             arm_x = sx - int(24 * sc)
             arm_y = sy - int(9 * sc)
@@ -961,8 +1179,9 @@ class MotoLevel:
             pygame.draw.line(self.screen, _HIT_COL,
                              (sx, arm_y), (arm_x, arm_y),
                              max(1, int(3 * sc)))
-        _draw_bike(self.screen, sx, sy, sc, _PLR_COL, -1, self._lean,
-                   draw_rider=False)
+        # Draw bike (no polygon rider – karate fighter drawn below)
+        _draw_bike(self.screen, sx, sy, sc, _PLR_COL, -1, lean,
+                   atk_side=atk_side, draw_rider=False)
 
         # Draw the karate fighter (same character as the main game) on the bike seat.
         # The fighter is shown in side-view, seated in a crouched riding stance.
@@ -972,7 +1191,7 @@ class MotoLevel:
         seat_y = sy - max(1, int(25 * s_val))
         hip_y_rider = seat_y + max(1, int(1 * s_val))
         fwd_off = max(1, int(8 * s_val))
-        cx_char = sx - fwd_off + self._lean * max(1, int(4 * s_val))
+        cx_char = sx - fwd_off + lean * max(1, int(4 * s_val))
         body_rect = pygame.Rect(
             cx_char - char_w // 2,
             hip_y_rider - char_h,
@@ -1019,9 +1238,19 @@ class MotoLevel:
         pygame.draw.rect(self.screen, hp_col,       (44, 17, int(120 * hp_ratio), 10))
         pygame.draw.rect(self.screen, (130, 130, 175), (44, 17, 120, 10), 1)
 
-        # Speed readout
-        spd_txt = self.font.render(f"SPD {int(self._fwd_speed)}", True, (160, 190, 230))
+        # Speed readout (colour: blue = fast, red = slow)
+        spd_frac = ((self._fwd_speed - _MIN_SPEED)
+                    / max(1, _MAX_SPEED - _MIN_SPEED))
+        spd_col  = (int(80 + 170 * spd_frac),
+                    int(180 - 30  * spd_frac),
+                    int(230 - 100 * spd_frac))
+        spd_txt = self.font.render(f"SPD {int(self._fwd_speed)}", True, spd_col)
         self.screen.blit(spd_txt, (14, 32))
+
+        # Wobble warning
+        if self._player_wobble > 0 and (self._frame // 4) % 2 == 0:
+            wob_txt = self.font.render("WOBBLE!", True, (255, 160, 30))
+            self.screen.blit(wob_txt, (14, 48))
 
         # Boss warning
         if self._boss_alive and self._enemies:
