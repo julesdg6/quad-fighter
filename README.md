@@ -36,6 +36,36 @@ Their hitboxes are highlighted in **purple** during the strike window.
 python main.py
 ```
 
+## Adding to Steam
+
+You can add Quad Fighter to your Steam library as a non-Steam game so it appears in your collection with the correct icon.
+
+### 1. Generate the icon (one-time setup)
+
+```bash
+pip install -r requirements.txt   # if not already done
+python make_icon.py               # writes icon.png to the game folder
+```
+
+### 2. Make the launcher executable
+
+```bash
+chmod +x launch.sh
+```
+
+### 3. Add to Steam
+
+1. Open Steam → **Games** → **Add a Non-Steam Game to My Library…**
+2. Click **Browse**, navigate to the `quad-fighter` folder, select `launch.sh`, and click **Add Selected Programs**.
+3. In your library, right-click **launch.sh** → **Properties**.
+4. Set the **Name** to `Quad Fighter`.
+5. Next to **Shortcut**, click the default icon box, then **Browse** and select `icon.png` from the game folder.
+6. Close Properties — Quad Fighter will now appear in your library with the custom icon.
+
+> **Note:** Steam on Linux requires the launcher to be executable (`chmod +x launch.sh`).
+> The script auto-detects a local `.venv` or `venv` virtual environment if one exists,
+> otherwise it falls back to the system `python3`.
+
 ## Screenshots
 
 ### Gameplay Overview
