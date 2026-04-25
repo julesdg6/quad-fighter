@@ -14,6 +14,7 @@ from options import OptionsScreen
 from settings import Settings
 from theme import get_theme, next_theme_name
 from moto_level import MotoLevel
+from gauntlet_level import GauntletLevel
 
 pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.init()
@@ -261,6 +262,10 @@ if QUAD_FIGHTER_AUTO_EXIT_FRAMES == 0:
             MotoLevel(screen, WIDTH, HEIGHT, FPS, settings, font, acid, sfx,
                       joystick=joystick).run()
             # Loop back to the splash after the moto level ends
+        elif result == "gauntlet":
+            GauntletLevel(screen, WIDTH, HEIGHT, FPS, settings, font, acid, sfx,
+                          joystick=joystick).run()
+            # Loop back to the splash after the gauntlet level ends
         else:
             break  # "game" – proceed to gameplay
 
