@@ -124,11 +124,17 @@ _OBSTACLE_DEFS = [
 
 # ── HUD constants ─────────────────────────────────────────────────────────────
 
-_HP_BAR_W        = 180
-_HP_BAR_H        = 16
-_HP_COLOR        = (60,  220, 80)
-_HP_BG_COLOR     = (40,  40,  40)
-_HUD_TEXT_COLOR  = (220, 220, 220)
+_HP_BAR_W           = 180
+_HP_BAR_H           = 16
+_HP_COLOR           = (60,  220, 80)
+_HP_BG_COLOR        = (40,  40,  40)
+_HUD_TEXT_COLOR     = (220, 220, 220)
+_HINT_DISPLAY_FRAMES = 180   # 3 seconds at 60 FPS
+
+# ── Controller button indices (standard Xbox / SDL layout) ────────────────────
+
+_BTN_LIGHT_ATK = 2   # X button
+_BTN_HEAVY_ATK = 1   # B button
 
 
 # ── Data classes ──────────────────────────────────────────────────────────────
@@ -266,7 +272,7 @@ class GauntletLevel:
         self._spawn_wave()
 
     def _spawn_wave(self) -> None:
-        types = _WAVES[self._wave_idx % len(_WAVES)]
+        types = _WAVES[self._wave_idx]   # caller ensures index is in-bounds
         for etype in types:
             x, y = self._random_spawn()
             self._enemies.append(_Enemy(x, y, etype))
@@ -348,10 +354,10 @@ class GauntletLevel:
         # Attack buttons
         atk_light = bool(keys[pygame.K_z])
         atk_heavy = bool(keys[pygame.K_x])
-        if self.joystick and self.joystick.get_numbuttons() >= 2:
-            if self.joystick.get_button(2):   # X button
+        if self.joystick and self.joystick.get_numbuttons() > max(_BTN_LIGHT_ATK, _BTN_HEAVY_ATK):
+            if self.joystick.get_button(_BTN_LIGHT_ATK):
                 atk_light = True
-            if self.joystick.get_button(1):   # B button
+            if self.joystick.get_button(_BTN_HEAVY_ATK):
                 atk_heavy = True
 
         return dx, dy, atk_light, atk_heavy
@@ -464,11 +470,12 @@ class GauntletLevel:
             if dist > atk_range + e.radius:
                 continue
 
-            # Arc check
+            # Arc check: normalise angle difference to [0, π] then compare half-arc
             if dist < 0.001:
                 in_arc = True
             else:
                 ea   = math.atan2(ey, ex)
+                # Wrap (ea - angle) into [-π, π] to get the shortest angular distance
                 diff = abs(((ea - angle + math.pi) % (2 * math.pi)) - math.pi)
                 in_arc = diff <= half_arc
 
@@ -496,7 +503,7 @@ class GauntletLevel:
 
             try:
                 self.sfx.play("enemy_hurt")
-            except Exception:
+            except pygame.error:
                 pass
 
     def _update_enemy(self, e: _Enemy) -> None:
@@ -546,7 +553,7 @@ class GauntletLevel:
                     self._hit_flashes.append((self._px, self._py, 12, (255, 80, 80)))
                     try:
                         self.sfx.play("player_hurt")
-                    except Exception:
+                    except pygame.error:
                         pass
         elif e.atk_cd == 0 and dist <= engage_dist:
             e.atk_timer = e.attack_wind
@@ -769,8 +776,8 @@ class GauntletLevel:
             self.screen.blit(ec,
                              (self.width // 2 - ec.get_width() // 2, 12))
 
-        # Controls hint during first 3 seconds
-        if self._frame < 180:
+        # Controls hint during first few seconds
+        if self._frame < _HINT_DISPLAY_FRAMES:
             hint = "Arrows: Move   Z: Light Attack   X: Heavy Attack   ESC: Exit"
             hs   = self._hud_font.render(hint, True, (140, 140, 160))
             self.screen.blit(hs,
