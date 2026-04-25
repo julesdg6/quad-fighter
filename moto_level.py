@@ -22,6 +22,8 @@ import random
 
 import pygame
 
+from render import draw_fighter
+
 # ── Pseudo-3D projection constants ────────────────────────────────────────────
 _HORIZON_Y  = 190      # screen-y of the vanishing horizon
 _FOCAL      = 300.0    # focal length  (world units ≈ pixels at scale 1)
@@ -114,6 +116,33 @@ _CRASH_DURATION = 65   # frames before crashed enemy is removed
 # Spawn geometry
 _SPAWN_RANGE_X  = 55.0   # max lateral x for random enemy spawns
 _SPAWN_FLANK_X  = 52.0   # paired-flanker x offset
+
+# Palette matching the main game's player character (karate fighter)
+_PLAYER_PALETTE = {
+    "chest":           (236, 236, 240),
+    "torso":           (248, 248, 252),
+    "pelvis":          (238, 238, 242),
+    "belt":            (28,  28,  30),
+    "head":            (216, 196, 172),
+    "face":            (188, 168, 145),
+    "hair":            (28,  24,  20),
+    "front_arm_upper": (248, 248, 252),
+    "front_arm_lower": (242, 242, 246),
+    "rear_arm_upper":  (232, 232, 238),
+    "rear_arm_lower":  (228, 228, 234),
+    "front_leg_upper": (246, 246, 250),
+    "front_leg_lower": (240, 240, 246),
+    "rear_leg_upper":  (228, 228, 234),
+    "rear_leg_lower":  (222, 222, 228),
+    "hands":           (212, 190, 162),
+    "feet":            (202, 180, 154),
+    "head_scale":      0.93,
+    "shoulder_ratio":  0.26,
+    "hip_ratio":       0.14,
+    "arm_width":       0.19,
+    "leg_width":       0.22,
+    "idle_tilt":       0.01,
+}
 
 
 # ── Projection helper ─────────────────────────────────────────────────────────
@@ -433,13 +462,14 @@ def _draw_road(screen, width, height, cx, road_offset, curve=0.0):
 # ── Bike / rider rendering ────────────────────────────────────────────────────
 
 def _draw_bike(screen, sx, sy, scale, color, facing, lean=0, atk_side=0,
-               crashed=False):
+               crashed=False, draw_rider=True):
     """Draw a polygon motorcycle + rider.
 
-    facing:   1 = front-on (enemy approaching),  -1 = rear view (player)
-    lean:    -1 / 0 / 1  – steering lean direction
-    atk_side: -1 = left attack, 0 = none, +1 = right attack
-    crashed:  True = draw fallen bike silhouette
+    facing:     1 = front-on (enemy approaching),  -1 = rear view (player)
+    lean:      -1 / 0 / 1  – steering lean direction
+    atk_side:  -1 = left attack, 0 = none, +1 = right attack
+    crashed:    True = draw fallen bike silhouette
+    draw_rider: False = omit the polygon rider (use when drawing a custom character)
     """
 
     def s(v):
@@ -507,52 +537,55 @@ def _draw_bike(screen, sx, sy, scale, color, facing, lean=0, atk_side=0,
                              (bx + tx_off, frame_base - s(1), s(4), s(2)))
 
         # ── Rider ────────────────────────────────────────────────────────────
-        hip_y = seat_y + s(1)
-        fwd   = s(8)            # forward lean of the torso
-
-        # Torso
-        t_top_x = bx - fwd
-        t_top_y = hip_y - s(17)
-        pygame.draw.polygon(screen, color, [
-            (bx - s(6),       hip_y),
-            (bx + s(6),       hip_y),
-            (bx + s(4) - fwd, t_top_y),
-            (bx - s(4) - fwd, t_top_y),
-        ])
-
-        # Helmet
-        hr = s(5)
-        hx = t_top_x - s(1)
-        hy = t_top_y - s(1)
-        pygame.draw.circle(screen, dark, (hx, hy), hr)
-        pygame.draw.arc(screen, chrome,
-                        (hx - hr, hy - hr, hr * 2, hr * 2),
-                        0.2, 2.8, max(1, s(1)))
-
-        # Handlebars
-        bar_x  = bx - fwd - s(4)
-        bar_y  = hip_y - s(11)
-        bar_hw = s(11)
-        pygame.draw.line(screen, metal,
-                         (bar_x - bar_hw, bar_y),
-                         (bar_x + bar_hw, bar_y), max(1, s(2)))
-
-        # Arms
+        # These coordinates are needed for attack arm even when rider is hidden
+        hip_y      = seat_y + s(1)
+        fwd        = s(8)
+        t_top_y    = hip_y - s(17)
         arm_root_x = bx - s(3) - fwd // 2
         arm_root_y = t_top_y + s(4)
-        pygame.draw.line(screen, color,
-                         (arm_root_x, arm_root_y),
-                         (bar_x - bar_hw // 2, bar_y), max(1, s(2)))
-        pygame.draw.line(screen, color,
-                         (arm_root_x + s(6), arm_root_y),
-                         (bar_x + bar_hw // 2, bar_y), max(1, s(2)))
 
-        # Legs (pegs on either side)
-        for side in (-1, 1):
-            knee = (bx + side * s(14), sy - s(7))
+        if draw_rider:
+            t_top_x = bx - fwd
+
+            # Torso
+            pygame.draw.polygon(screen, color, [
+                (bx - s(6),       hip_y),
+                (bx + s(6),       hip_y),
+                (bx + s(4) - fwd, t_top_y),
+                (bx - s(4) - fwd, t_top_y),
+            ])
+
+            # Helmet
+            hr = s(5)
+            hx = t_top_x - s(1)
+            hy = t_top_y - s(1)
+            pygame.draw.circle(screen, dark, (hx, hy), hr)
+            pygame.draw.arc(screen, chrome,
+                            (hx - hr, hy - hr, hr * 2, hr * 2),
+                            0.2, 2.8, max(1, s(1)))
+
+            # Handlebars
+            bar_x  = bx - fwd - s(4)
+            bar_y  = hip_y - s(11)
+            bar_hw = s(11)
+            pygame.draw.line(screen, metal,
+                             (bar_x - bar_hw, bar_y),
+                             (bar_x + bar_hw, bar_y), max(1, s(2)))
+
+            # Arms
             pygame.draw.line(screen, color,
-                             (bx + side * s(5), hip_y), knee,
-                             max(1, s(2)))
+                             (arm_root_x, arm_root_y),
+                             (bar_x - bar_hw // 2, bar_y), max(1, s(2)))
+            pygame.draw.line(screen, color,
+                             (arm_root_x + s(6), arm_root_y),
+                             (bar_x + bar_hw // 2, bar_y), max(1, s(2)))
+
+            # Legs (pegs on either side)
+            for side in (-1, 1):
+                knee = (bx + side * s(14), sy - s(7))
+                pygame.draw.line(screen, color,
+                                 (bx + side * s(5), hip_y), knee,
+                                 max(1, s(2)))
 
         # Extended attack arm (Z = left, X = right)
         if atk_side == -1:
@@ -612,38 +645,39 @@ def _draw_bike(screen, sx, sy, scale, color, facing, lean=0, atk_side=0,
                          (fx + bar_hw, bar_y),
                          (fx + bar_hw - s(2), bar_y + s(3)), max(1, s(1)))
 
-        # Rider torso
-        t_top = bar_y - s(15)
-        pygame.draw.polygon(screen, color, [
-            (fx - s(7), bar_y),
-            (fx + s(7), bar_y),
-            (fx + s(4), t_top),
-            (fx - s(4), t_top),
-        ])
+        # Rider torso (front-facing, enemy)
+        if draw_rider:
+            t_top = bar_y - s(15)
+            pygame.draw.polygon(screen, color, [
+                (fx - s(7), bar_y),
+                (fx + s(7), bar_y),
+                (fx + s(4), t_top),
+                (fx - s(4), t_top),
+            ])
 
-        # Helmet
-        hr    = s(5)
-        helm_y = t_top - hr
-        pygame.draw.circle(screen, dark, (fx, helm_y), hr)
-        pygame.draw.arc(screen, chrome,
-                        (fx - hr, helm_y - hr, hr * 2, hr * 2),
-                        0.2, 2.8, max(1, s(1)))
+            # Helmet
+            hr    = s(5)
+            helm_y = t_top - hr
+            pygame.draw.circle(screen, dark, (fx, helm_y), hr)
+            pygame.draw.arc(screen, chrome,
+                            (fx - hr, helm_y - hr, hr * 2, hr * 2),
+                            0.2, 2.8, max(1, s(1)))
 
-        # Arms reaching to handlebars
-        arm_y = t_top + s(5)
-        pygame.draw.line(screen, color,
-                         (fx - s(4), arm_y), (fx - bar_hw, bar_y),
-                         max(1, s(2)))
-        pygame.draw.line(screen, color,
-                         (fx + s(4), arm_y), (fx + bar_hw, bar_y),
-                         max(1, s(2)))
-
-        # Legs
-        for side in (-1, 1):
-            knee = (fx + side * s(11), bar_y + s(5))
+            # Arms reaching to handlebars
+            arm_y = t_top + s(5)
             pygame.draw.line(screen, color,
-                             (fx + side * s(5), bar_y), knee,
+                             (fx - s(4), arm_y), (fx - bar_hw, bar_y),
                              max(1, s(2)))
+            pygame.draw.line(screen, color,
+                             (fx + s(4), arm_y), (fx + bar_hw, bar_y),
+                             max(1, s(2)))
+
+            # Legs
+            for side in (-1, 1):
+                knee = (fx + side * s(11), bar_y + s(5))
+                pygame.draw.line(screen, color,
+                                 (fx + side * s(5), bar_y), knee,
+                                 max(1, s(2)))
 
         # Extended attack arm (visible when enemy swipes at player)
         if atk_side != 0:
@@ -1145,8 +1179,32 @@ class MotoLevel:
             pygame.draw.line(self.screen, _HIT_COL,
                              (sx, arm_y), (arm_x, arm_y),
                              max(1, int(3 * sc)))
+        # Draw bike (no polygon rider – karate fighter drawn below)
         _draw_bike(self.screen, sx, sy, sc, _PLR_COL, -1, lean,
-                   atk_side=atk_side)
+                   atk_side=atk_side, draw_rider=False)
+
+        # Draw the karate fighter (same character as the main game) on the bike seat.
+        # The fighter is shown in side-view, seated in a crouched riding stance.
+        s_val = float(sc)
+        char_w = max(16, int(22 * s_val))
+        char_h = max(32, int(48 * s_val))
+        seat_y = sy - max(1, int(25 * s_val))
+        hip_y_rider = seat_y + max(1, int(1 * s_val))
+        fwd_off = max(1, int(8 * s_val))
+        cx_char = sx - fwd_off + lean * max(1, int(4 * s_val))
+        body_rect = pygame.Rect(
+            cx_char - char_w // 2,
+            hip_y_rider - char_h,
+            char_w,
+            char_h,
+        )
+        draw_fighter(
+            self.screen,
+            body_rect=body_rect,
+            facing=1,
+            palette=_PLAYER_PALETTE,
+            pose="crouch",
+        )
 
     def _draw_hit_flashes(self):
         for x, y, t in self._hit_flashes:
