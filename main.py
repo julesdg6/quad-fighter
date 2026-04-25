@@ -254,7 +254,7 @@ if QUAD_FIGHTER_AUTO_EXIT_FRAMES == 0:
     while True:
         result = SplashScreen(screen, WIDTH, HEIGHT, FPS, joystick=joystick).run()
         if result == "options":
-            OptionsScreen(screen, WIDTH, HEIGHT, FPS, settings, joystick=joystick).run(acid)
+            OptionsScreen(screen, WIDTH, HEIGHT, FPS, settings, joystick=joystick).run(acid, sfx)
             acid.set_volume(settings.music_volume / 100.0)
             sfx.set_volume(settings.sfx_volume / 100.0)
         elif result == "moto":
