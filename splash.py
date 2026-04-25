@@ -29,9 +29,10 @@ MENU_HINT_COLOUR = (110, 100, 140)
 
 # Menu items and their return values
 MENU_ITEMS = [
-    ("Start Game",  "game"),
-    ("Moto Level",  "moto"),
-    ("Options",     "options"),
+    ("Start Game",    "game"),
+    ("Moto Level",    "moto"),
+    ("Rampage Level", "rampage"),
+    ("Options",       "options"),
 ]
 
 
