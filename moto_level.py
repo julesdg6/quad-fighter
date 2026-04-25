@@ -67,6 +67,14 @@ _OBS_DAMAGE    = 20
 _ROAD_BAND_Z   = 300.0   # z-period of alternating road bands
 _STRIPE_Z_GAP  = 200.0   # world units between centre dashes
 
+# Road curve animation
+_CURVE_FREQ      = 0.20   # sinusoidal bend frequency (radians / second)
+_CURVE_AMP       = 0.85   # maximum curve strength (fraction of full bend)
+_CURVE_SMOOTHING = 1.8    # low-pass smoothing rate (higher = snappier)
+
+# Scenery
+_POST_SCROLL_FACTOR = 0.96  # lamp posts scroll slightly slower than road (parallax)
+
 # Colours
 _SKY_TOP     = (10,  14,  26)
 _SKY_BOT     = (28,  22,  52)
@@ -161,101 +169,150 @@ class _Obstacle:
 # ── Road drawing helpers ──────────────────────────────────────────────────────
 
 def _draw_sky(screen, width, horizon_y):
-    """Gradient sky above the horizon."""
+    """Gradient sky: dark blue-purple at top fading to warm purple near horizon."""
     for y in range(0, horizon_y, 2):
         t = y / max(1, horizon_y)
         r = int(_SKY_TOP[0] + (_SKY_BOT[0] - _SKY_TOP[0]) * t)
         g = int(_SKY_TOP[1] + (_SKY_BOT[1] - _SKY_TOP[1]) * t)
         b = int(_SKY_TOP[2] + (_SKY_BOT[2] - _SKY_TOP[2]) * t)
         pygame.draw.rect(screen, (r, g, b), (0, y, width, 2))
+    # Glow strip just above horizon
+    for y in range(max(0, horizon_y - 8), horizon_y, 1):
+        t = (y - (horizon_y - 8)) / 8
+        pygame.draw.rect(screen, (int(60 * t), int(30 * t), int(80 * t)), (0, y, width, 1))
 
 
-def _draw_road(screen, width, height, cx, road_offset):
-    """Draw pseudo-3D road: base + perspective bands + edge lines + centre dashes."""
+def _draw_buildings(screen, width, horizon_y, road_offset):
+    """Draw a procedural city silhouette above the horizon (slow parallax)."""
+    # Fixed building layout – deterministic without Random state
+    layout = [
+        (40,  55, 65, (18, 20, 40)),
+        (115, 38, 45, (22, 18, 42)),
+        (185, 58, 85, (14, 22, 44)),
+        (268, 34, 58, (20, 20, 38)),
+        (330, 68, 72, (17, 24, 46)),
+        (420, 44, 52, (22, 18, 40)),
+        (492, 56, 95, (13, 18, 42)),
+        (565, 40, 62, (20, 22, 44)),
+        (628, 64, 78, (16, 20, 40)),
+        (710, 50, 58, (22, 20, 46)),
+        (778, 54, 68, (18, 18, 38)),
+        (840, 42, 50, (20, 22, 42)),
+    ]
+    total_span = 900
+    scroll = int(road_offset * 0.03) % total_span
+
+    for bx_base, bw, bh, col in layout:
+        for wrap in (0, total_span):
+            bx = bx_base - scroll + wrap
+            if bx + bw < 0 or bx - bw > width:
+                continue
+            top = horizon_y - bh
+            pygame.draw.rect(screen, col, (bx - bw // 2, top, bw, bh))
+            # Rooftop antenna
+            pygame.draw.line(screen,
+                             (col[0] + 12, col[1] + 12, col[2] + 18),
+                             (bx, top), (bx, top - 10), 1)
+            # Windows (deterministic: combine bx_base + grid offsets for varied lit/dark)
+            wc = (min(255, col[0] + 130), min(255, col[1] + 120),
+                  min(255, col[2] + 80))
+            for wy in range(top + 5, horizon_y - 4, 8):
+                for wxi in range(5, bw - 4, 8):
+                    if (bx_base + wxi * 3 + wy) % 4 != 0:  # ~75% of windows lit
+                        pygame.draw.rect(screen, wc,
+                                         (bx - bw // 2 + wxi, wy, 3, 4))
+
+
+def _draw_road(screen, width, height, cx, road_offset, curve=0.0):
+    """Draw pseudo-3D road with perspective bands, curves, edge kerbs,
+    centre dashes and roadside lamp posts.
+
+    curve: lateral bend strength (-1 = hard left, +1 = hard right).
+    """
+
+    def _road_cx(wz):
+        """Screen x of the road centre at depth wz, shifted by curve."""
+        t = max(0.0, float(wz) - _Z_NEAR) / (_Z_FAR - _Z_NEAR)
+        return cx + curve * 160.0 * t * t
 
     def _sy(wz):
         _, sy, _ = _proj(0, wz, cx)
         return min(sy, height - 4)
 
     def _x(wx, wz):
-        sx, _, _ = _proj(wx, wz, cx)
-        return sx
+        z = max(1.0, float(wz))
+        sc = _FOCAL / z
+        return int(_road_cx(wz) + wx * sc)
 
-    # --- Base road trapezoid ---
+    # --- Base road surface ---
     lxn = _x(-_ROAD_HALF, _Z_NEAR)
     rxn = _x( _ROAD_HALF, _Z_NEAR)
     syn = _sy(_Z_NEAR)
     lxf = _x(-_ROAD_HALF, _Z_FAR)
     rxf = _x( _ROAD_HALF, _Z_FAR)
     syf = _sy(_Z_FAR)
-    pygame.draw.polygon(
-        screen, _ROAD_COL,
-        [(lxf, syf), (rxf, syf), (rxn, syn), (lxn, syn)],
-    )
+    pygame.draw.polygon(screen, _ROAD_COL,
+                        [(lxf, syf), (rxf, syf), (rxn, syn), (lxn, syn)])
+    # Fill the strip between the near edge and the screen bottom (no gaps)
+    syn_c = min(syn, height)
+    if syn_c < height:
+        pygame.draw.rect(screen, _ROAD_COL,
+                         (lxn, syn_c, rxn - lxn, height - syn_c))
 
     # --- Alternating perspective bands ---
-    # Build z slice points: more slices near camera for smoother perspective
-    num_slices = 14
-    z_slices = []
-    for i in range(num_slices + 1):
-        t = i / num_slices
-        z = _Z_NEAR + (_Z_FAR - _Z_NEAR) * (t ** 0.55)
-        z_slices.append(z)
+    num_slices = 20
+    z_slices = [_Z_NEAR + (_Z_FAR - _Z_NEAR) * (i / num_slices) ** 0.5
+                for i in range(num_slices + 1)]
 
     for i in range(num_slices):
-        z0 = z_slices[i]      # near side of this band (larger screen y)
-        z1 = z_slices[i + 1]  # far side
-        band_idx = int((z0 + road_offset) / _ROAD_BAND_Z) % 2
-        if band_idx == 0:
+        z0 = z_slices[i]
+        z1 = z_slices[i + 1]
+        if int((z0 + road_offset) / _ROAD_BAND_Z) % 2 == 0:
             continue
-        sy0 = _sy(z0)
-        sy1 = _sy(z1)
-        lx0 = _x(-_ROAD_HALF, z0)
-        rx0 = _x( _ROAD_HALF, z0)
-        lx1 = _x(-_ROAD_HALF, z1)
-        rx1 = _x( _ROAD_HALF, z1)
-        if sy0 > sy1:
-            pygame.draw.polygon(
-                screen, _ROAD_COL2,
-                [(lx1, sy1), (rx1, sy1), (rx0, sy0), (lx0, sy0)],
-            )
+        sy0, sy1 = _sy(z0), _sy(z1)
+        if sy0 <= sy1:
+            continue
+        lx0, rx0 = _x(-_ROAD_HALF, z0), _x(_ROAD_HALF, z0)
+        lx1, rx1 = _x(-_ROAD_HALF, z1), _x(_ROAD_HALF, z1)
+        pygame.draw.polygon(screen, _ROAD_COL2,
+                            [(lx1, sy1), (rx1, sy1), (rx0, sy0), (lx0, sy0)])
 
     # --- Road edge lines ---
-    edge_zs = [_Z_NEAR + (_Z_FAR - _Z_NEAR) * (i / 18) ** 0.5
-               for i in range(19)]
-    left_pts  = []
-    right_pts = []
+    num_edge = 24
+    edge_zs = [_Z_NEAR + (_Z_FAR - _Z_NEAR) * (i / (num_edge - 1)) ** 0.5
+               for i in range(num_edge)]
+    left_pts, right_pts = [], []
     for z in edge_zs:
         sy = _sy(z)
         if _HORIZON_Y <= sy <= height:
-            left_pts.append((_x(-_ROAD_HALF, z), sy))
+            left_pts.append( (_x(-_ROAD_HALF, z), sy))
             right_pts.append((_x( _ROAD_HALF, z), sy))
     if len(left_pts)  >= 2:
         pygame.draw.lines(screen, _EDGE_COL, False, left_pts,  2)
     if len(right_pts) >= 2:
         pygame.draw.lines(screen, _EDGE_COL, False, right_pts, 2)
 
-    # --- Kerb stripes (red/white alternating on edges) ---
+    # --- Kerb stripes (red / white alternating) ---
     kerb_period = 150.0
+    z_range = _Z_FAR - _Z_NEAR
     for side in (-1, 1):
-        for i in range(12):
-            z0 = _Z_NEAR + ((i * kerb_period - road_offset) % (_Z_FAR - _Z_NEAR))
-            z1 = z0 + kerb_period * 0.5
+        for i in range(14):
+            z0 = _Z_NEAR + ((i * kerb_period - road_offset) % z_range)
+            z1 = min(z0 + kerb_period * 0.5, _Z_FAR)
             if z0 <= 0 or z0 >= _Z_FAR:
                 continue
-            z1 = min(z1, _Z_FAR)
-            sy0 = _sy(z0)
-            sy1 = _sy(z1)
+            sy0, sy1 = _sy(z0), _sy(z1)
             if sy0 <= sy1 or sy0 > height:
                 continue
-            kerb_x = _x(side * _ROAD_HALF, (z0 + z1) * 0.5)
-            kerb_w = max(2, int(abs(_x(side * _ROAD_HALF, z0) - _x(side * _ROAD_HALF, z1)) * 0.4))
-            kerb_h = max(1, sy0 - sy1)
-            col = (210, 60, 60) if (i % 2 == 0) else (230, 230, 230)
-            pygame.draw.rect(screen, col, (kerb_x - kerb_w // 2, sy1, kerb_w, kerb_h))
+            mid_z = (z0 + z1) * 0.5
+            kx    = _x(side * _ROAD_HALF, mid_z)
+            kw    = max(2, int(abs(_x(side * _ROAD_HALF, z0) -
+                                   _x(side * _ROAD_HALF, z1)) * 0.5))
+            kh    = max(1, sy0 - sy1)
+            col   = (210, 60, 60) if (i % 2 == 0) else (230, 230, 230)
+            pygame.draw.rect(screen, col, (kx - kw // 2, sy1, kw, kh))
 
     # --- Centre dashes ---
-    z_range = _Z_FAR - _Z_NEAR
     num_dashes = int(z_range / _STRIPE_Z_GAP) + 3
     for i in range(num_dashes):
         z = _Z_NEAR + ((i * _STRIPE_Z_GAP - road_offset) % z_range)
@@ -264,15 +321,50 @@ def _draw_road(screen, width, height, cx, road_offset):
         _, sy, sc = _proj(0, z, cx)
         if sy < _HORIZON_Y or sy > height - 2:
             continue
-        dw = max(1, int(4 * sc))
-        dh = max(1, int(24 * sc))
-        pygame.draw.rect(screen, _STRIPE_COL, (cx - dw // 2, sy - dh, dw, dh))
+        rcx = int(_road_cx(z))
+        dw  = max(1, int(4 * sc))
+        dh  = max(1, int(24 * sc))
+        pygame.draw.rect(screen, _STRIPE_COL, (rcx - dw // 2, sy - dh, dw, dh))
+
+    # --- Roadside lamp posts ---
+    post_period = 210.0
+    num_posts   = int(z_range / post_period) + 3
+    for side in (-1, 1):
+        post_wx = side * (_ROAD_HALF + 28.0)
+        for i in range(num_posts):
+            z = _Z_NEAR + ((i * post_period - road_offset * _POST_SCROLL_FACTOR) % z_range)
+            if z <= _Z_NEAR or z > _Z_FAR * 0.97:
+                continue
+            _, post_sy, sc = _proj(0, z, cx)
+            if post_sy < _HORIZON_Y or post_sy > height:
+                continue
+            post_sx = _x(post_wx, z)
+            ph = max(3, int(55 * sc))
+            pw = max(1, int(4 * sc))
+            # Shaft
+            pygame.draw.rect(screen, (52, 58, 78),
+                             (post_sx - pw // 2, post_sy - ph, pw, ph))
+            # Arm pointing inward over road
+            arm_len = max(2, int(14 * sc)) * (-side)
+            arm_y   = post_sy - ph
+            arm_dy  = max(1, int(4 * sc))
+            pygame.draw.line(screen, (52, 58, 78),
+                             (post_sx, arm_y),
+                             (post_sx + arm_len, arm_y - arm_dy),
+                             max(1, pw // 2))
+            # Lamp globe
+            lamp_x = post_sx + arm_len
+            lamp_y = arm_y - arm_dy
+            lr = max(1, int(5 * sc))
+            pygame.draw.circle(screen, (220, 210, 145), (lamp_x, lamp_y), lr)
+            pygame.draw.circle(screen, (255, 248, 200), (lamp_x, lamp_y),
+                               max(1, lr - 1))
 
 
 # ── Bike / rider rendering ────────────────────────────────────────────────────
 
 def _draw_bike(screen, sx, sy, scale, color, facing, lean=0):
-    """Draw a schematic motorcycle + rider.
+    """Draw a polygon motorcycle + rider.
 
     facing:  1 = front-on (enemy approaching),  -1 = rear view (player)
     lean:   -1 / 0 / 1  – steering lean direction
@@ -281,43 +373,175 @@ def _draw_bike(screen, sx, sy, scale, color, facing, lean=0):
     def s(v):
         return max(1, int(v * scale))
 
-    lean_off = lean * s(3)
+    lx     = lean * s(4)             # lateral lean offset (pixels)
+    dark   = tuple(max(0, c - 55) for c in color)
+    metal  = (82, 88, 102)
+    chrome = (168, 174, 186)
+    w_col  = (25, 25, 30)            # tyre rubber
+    r_col  = (138, 144, 158)         # wheel rim
 
-    # Wheels
-    wr = s(6)
-    wf = max(1, wr // 2)          # flattened vertically for perspective
-    if facing == -1:              # rear view: rear wheel centred, front above
-        rw = (sx + lean_off, sy)
-        fw = (sx + lean_off, sy - s(1))
-    else:                         # front view: two wheels side by side
-        rw = (sx - s(6) + lean_off, sy)
-        fw = (sx + s(6) + lean_off, sy)
-    pygame.draw.ellipse(screen, color, (rw[0] - wr, rw[1] - wf, wr * 2, wf * 2))
-    pygame.draw.ellipse(screen, color, (fw[0] - wr, fw[1] - wf, wr * 2, wf * 2))
+    if facing == -1:
+        # ── Rear view (player) ───────────────────────────────────────────────
+        bx = sx + lx   # bike lateral centre
 
-    # Bike body (fuel tank / seat)
-    bw = s(8)
-    bh = s(3)
-    by = sy - s(4)
-    pygame.draw.rect(screen, color, (sx + lean_off - bw, by - bh, bw * 2, bh))
+        # Rear wheel
+        wr, wh = s(15), s(6)
+        pygame.draw.ellipse(screen, w_col, (bx - wr, sy - wh, wr * 2, wh * 2))
+        pygame.draw.ellipse(screen, r_col, (bx - wr, sy - wh, wr * 2, wh * 2),
+                            max(1, s(2)))
+        pygame.draw.circle(screen, metal, (bx, sy - wh + s(1)), s(3))
 
-    # Rider torso
-    tx = sx + lean_off
-    th = s(9)
-    tw = s(4)
-    torso_bottom = by - bh
-    pygame.draw.rect(screen, color, (tx - tw, torso_bottom - th, tw * 2, th))
+        # Swing arm / rear shock
+        frame_base = sy - wh - s(2)
+        seat_y     = sy - s(25)
+        pygame.draw.line(screen, metal, (bx, frame_base), (bx, seat_y + s(4)),
+                         max(1, s(3)))
 
-    # Rider head
-    hr = max(1, s(4))
-    pygame.draw.circle(screen, color, (tx, torso_bottom - th - hr), hr)
+        # Rear frame / sub-frame
+        fw = s(10)
+        pygame.draw.polygon(screen, dark, [
+            (bx - fw, frame_base),
+            (bx + fw, frame_base),
+            (bx + s(7), seat_y),
+            (bx - s(7), seat_y),
+        ])
 
-    # Handlebars
-    bar_y = torso_bottom - s(3)
-    pygame.draw.line(screen, color,
-                     (sx + lean_off - s(8), bar_y),
-                     (sx + lean_off + s(8), bar_y),
-                     max(1, s(1)))
+        # Exhaust pipes (both sides)
+        for side in (-1, 1):
+            ex0 = (bx + side * s(9),  seat_y + s(2))
+            ex1 = (bx + side * s(14), sy - s(2))
+            pygame.draw.line(screen, (128, 104, 68), ex0, ex1, max(1, s(2)))
+            pygame.draw.circle(screen, (98, 78, 52), ex1, max(1, s(2)))
+
+        # Seat pad
+        pygame.draw.ellipse(screen, (14, 14, 18),
+                            (bx - s(9), seat_y - s(2), s(18), s(5)))
+
+        # Tail lights
+        for tx_off in (-s(5), s(2)):
+            pygame.draw.rect(screen, (200, 34, 34),
+                             (bx + tx_off, frame_base - s(1), s(4), s(2)))
+
+        # ── Rider ────────────────────────────────────────────────────────────
+        hip_y = seat_y + s(1)
+        fwd   = s(8)            # forward lean of the torso
+
+        # Torso
+        t_top_x = bx - fwd
+        t_top_y = hip_y - s(17)
+        pygame.draw.polygon(screen, color, [
+            (bx - s(6),       hip_y),
+            (bx + s(6),       hip_y),
+            (bx + s(4) - fwd, t_top_y),
+            (bx - s(4) - fwd, t_top_y),
+        ])
+
+        # Helmet
+        hr = s(5)
+        hx = t_top_x - s(1)
+        hy = t_top_y - s(1)
+        pygame.draw.circle(screen, dark, (hx, hy), hr)
+        pygame.draw.arc(screen, chrome,
+                        (hx - hr, hy - hr, hr * 2, hr * 2),
+                        0.2, 2.8, max(1, s(1)))
+
+        # Handlebars
+        bar_x  = bx - fwd - s(4)
+        bar_y  = hip_y - s(11)
+        bar_hw = s(11)
+        pygame.draw.line(screen, metal,
+                         (bar_x - bar_hw, bar_y),
+                         (bar_x + bar_hw, bar_y), max(1, s(2)))
+
+        # Arms
+        arm_root_x = bx - s(3) - fwd // 2
+        arm_root_y = t_top_y + s(4)
+        pygame.draw.line(screen, color,
+                         (arm_root_x, arm_root_y),
+                         (bar_x - bar_hw // 2, bar_y), max(1, s(2)))
+        pygame.draw.line(screen, color,
+                         (arm_root_x + s(6), arm_root_y),
+                         (bar_x + bar_hw // 2, bar_y), max(1, s(2)))
+
+        # Legs (pegs on either side)
+        for side in (-1, 1):
+            knee = (bx + side * s(14), sy - s(7))
+            pygame.draw.line(screen, color,
+                             (bx + side * s(5), hip_y), knee,
+                             max(1, s(2)))
+
+    else:
+        # ── Front view (enemy) ───────────────────────────────────────────────
+        fx = sx + lx   # bike lateral centre
+
+        # Front wheel
+        wr, wh = s(13), s(5)
+        pygame.draw.ellipse(screen, w_col, (fx - wr, sy - wh, wr * 2, wh * 2))
+        pygame.draw.ellipse(screen, r_col, (fx - wr, sy - wh, wr * 2, wh * 2),
+                            max(1, s(2)))
+        pygame.draw.circle(screen, metal, (fx, sy), s(3))
+
+        # Front forks
+        fork_top = sy - s(21)
+        pygame.draw.line(screen, chrome,
+                         (fx - s(3), fork_top), (fx - s(2), sy - wh),
+                         max(1, s(2)))
+        pygame.draw.line(screen, chrome,
+                         (fx + s(3), fork_top), (fx + s(2), sy - wh),
+                         max(1, s(2)))
+
+        # Headlight
+        hl_y = fork_top - s(2)
+        hl_r = s(4)
+        pygame.draw.circle(screen, (40, 40, 62), (fx, hl_y), hl_r)
+        pygame.draw.circle(screen, (245, 235, 162), (fx, hl_y), max(1, s(2)))
+
+        # Handlebars
+        bar_y  = fork_top - s(5)
+        bar_hw = s(13)
+        pygame.draw.line(screen, metal,
+                         (fx - bar_hw, bar_y), (fx + bar_hw, bar_y),
+                         max(1, s(2)))
+        # Bar ends angle down
+        pygame.draw.line(screen, metal,
+                         (fx - bar_hw, bar_y),
+                         (fx - bar_hw + s(2), bar_y + s(3)), max(1, s(1)))
+        pygame.draw.line(screen, metal,
+                         (fx + bar_hw, bar_y),
+                         (fx + bar_hw - s(2), bar_y + s(3)), max(1, s(1)))
+
+        # Rider torso
+        t_top = bar_y - s(15)
+        pygame.draw.polygon(screen, color, [
+            (fx - s(7), bar_y),
+            (fx + s(7), bar_y),
+            (fx + s(4), t_top),
+            (fx - s(4), t_top),
+        ])
+
+        # Helmet
+        hr    = s(5)
+        helm_y = t_top - hr
+        pygame.draw.circle(screen, dark, (fx, helm_y), hr)
+        pygame.draw.arc(screen, chrome,
+                        (fx - hr, helm_y - hr, hr * 2, hr * 2),
+                        0.2, 2.8, max(1, s(1)))
+
+        # Arms reaching to handlebars
+        arm_y = t_top + s(5)
+        pygame.draw.line(screen, color,
+                         (fx - s(4), arm_y), (fx - bar_hw, bar_y),
+                         max(1, s(2)))
+        pygame.draw.line(screen, color,
+                         (fx + s(4), arm_y), (fx + bar_hw, bar_y),
+                         max(1, s(2)))
+
+        # Legs
+        for side in (-1, 1):
+            knee = (fx + side * s(11), bar_y + s(5))
+            pygame.draw.line(screen, color,
+                             (fx + side * s(5), bar_y), knee,
+                             max(1, s(2)))
 
 
 def _draw_obstacle(screen, sx, sy, scale, kind):
@@ -431,6 +655,10 @@ class MotoLevel:
         self._boss_alive    = False
         self._schedule      = self._build_schedule()
 
+        # Road curve state
+        self._curve        = 0.0   # current lateral curvature (-1 to 1)
+        self._curve_timer  = 0.0   # time accumulator driving sinusoidal bends
+
     def _build_schedule(self):
         sched = []
         # Regular enemy waves every ~350 world units
@@ -491,6 +719,11 @@ class MotoLevel:
         # Distance progress
         self._distance    += self._fwd_speed * dt
         self._road_offset += self._fwd_speed * dt
+
+        # Sinusoidal road curve
+        self._curve_timer += dt
+        target_curve = math.sin(self._curve_timer * _CURVE_FREQ) * _CURVE_AMP
+        self._curve += (target_curve - self._curve) * _CURVE_SMOOTHING * dt
 
         # Lateral steering
         if inp["left"]:
@@ -631,8 +864,12 @@ class MotoLevel:
     # ── Draw ──────────────────────────────────────────────────────────────────
 
     def _draw(self):
+        # Clear every pixel to prevent ghosting artifacts from previous frames
+        self.screen.fill(_SKY_TOP)
         _draw_sky(self.screen, self.width, _HORIZON_Y)
-        _draw_road(self.screen, self.width, self.height, self.cx, self._road_offset)
+        _draw_buildings(self.screen, self.width, _HORIZON_Y, self._road_offset)
+        _draw_road(self.screen, self.width, self.height, self.cx,
+                   self._road_offset, self._curve)
         self._draw_entities()
         self._draw_player()
         self._draw_hit_flashes()
