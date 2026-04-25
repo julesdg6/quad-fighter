@@ -139,6 +139,7 @@ class OptionsScreen:
         self._ctrl_held: dict = {}
         self._prev_hat  = (0, 0)
         self._prev_stick = (0.0, 0.0)
+        self._sfx = None  # set by run()
 
     # ── Public ────────────────────────────────────────────────────────────────
 
@@ -294,9 +295,8 @@ class OptionsScreen:
     def _apply_volume(self, acid_machine) -> None:
         if acid_machine is not None:
             acid_machine.set_volume(self.settings.music_volume / 100.0)
-        sfx = getattr(self, "_sfx", None)
-        if sfx is not None:
-            sfx.set_volume(self.settings.sfx_volume / 100.0)
+        if self._sfx is not None:
+            self._sfx.set_volume(self.settings.sfx_volume / 100.0)
 
     # ── Drawing ───────────────────────────────────────────────────────────────
 
