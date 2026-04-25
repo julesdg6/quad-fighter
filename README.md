@@ -46,9 +46,9 @@ python main.py
 
 ![Combat hit feedback](docs/screenshots/combat-hit-feedback.png)
 
-### Level Polish Pass
+### Moto Level
 
-![Level polish](docs/screenshots/level-polish.png)
+![Moto level](docs/screenshots/moto-scene.png)
 
 ## Features Implemented
 
