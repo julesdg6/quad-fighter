@@ -839,8 +839,10 @@ def _draw_karate_rider_rear(screen, sx, sy, scale, lean=0, palette=None,
 
     sx, sy   – wheel ground anchor (same as _draw_bike anchor)
     lean     – -1 / 0 / 1 steering lean
-    palette  – colour dict using _PLAYER_PALETTE keys; uses defaults if None
-    atk_side – -1 / 0 / +1  extended attack arm
+    palette  – colour dict; recognised keys: "torso", "pelvis", "belt",
+               "head", "hair", "front_leg_upper" (falls back to built-in
+               gi colours when a key is absent or palette is None)
+    atk_side – -1 / 0 / +1  extended attack arm direction
     """
 
     def s(v):
@@ -868,7 +870,7 @@ def _draw_karate_rider_rear(screen, sx, sy, scale, lean=0, palette=None,
     # ── Reference heights (from wheel ground point upward) ───────────────────
     seat_y     = sy - s(28)
     hip_y      = seat_y + s(2)
-    waist_y    = hip_y - s(9)
+    belt_y     = hip_y - s(9)
     shoulder_y = hip_y - s(22)
     neck_y     = shoulder_y - s(3)
     head_cy    = neck_y - s(8)
@@ -913,7 +915,7 @@ def _draw_karate_rider_rear(screen, sx, sy, scale, lean=0, palette=None,
     ])
     # Centre back seam
     pygame.draw.line(screen, gi_shd,
-                     (cx_t, shoulder_y + s(2)), (cx_t, waist_y - s(1)),
+                     (cx_t, shoulder_y + s(2)), (cx_t, belt_y - s(1)),
                      max(1, s(1)))
     # Collar V from behind
     pygame.draw.line(screen, gi_shd,
@@ -925,17 +927,17 @@ def _draw_karate_rider_rear(screen, sx, sy, scale, lean=0, palette=None,
 
     # ── 3. Belt ───────────────────────────────────────────────────────────────
     pygame.draw.polygon(screen, belt_col, [
-        (cx_t - s(9),  waist_y - s(1)),
-        (cx_t + s(9),  waist_y - s(1)),
-        (cx_t + s(10), waist_y + s(3)),
-        (cx_t - s(10), waist_y + s(3)),
+        (cx_t - s(9),  belt_y - s(1)),
+        (cx_t + s(9),  belt_y - s(1)),
+        (cx_t + s(10), belt_y + s(3)),
+        (cx_t - s(10), belt_y + s(3)),
     ])
     # Belt knot at centre back
     pygame.draw.polygon(screen, belt_col, [
-        (cx_t - s(3), waist_y - s(2)),
-        (cx_t + s(3), waist_y - s(2)),
-        (cx_t + s(2), waist_y + s(4)),
-        (cx_t - s(2), waist_y + s(4)),
+        (cx_t - s(3), belt_y - s(2)),
+        (cx_t + s(3), belt_y - s(2)),
+        (cx_t + s(2), belt_y + s(4)),
+        (cx_t - s(2), belt_y + s(4)),
     ])
 
     # ── 4. Arms (gi sleeve to elbow, skin from elbow to grip) ────────────────
