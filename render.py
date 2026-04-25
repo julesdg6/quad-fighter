@@ -76,7 +76,6 @@ def _draw_bent_limb(
     screen,
     upper_color,
     lower_color,
-    joint_color,
     start,
     mid,
     end,
@@ -87,7 +86,7 @@ def _draw_bent_limb(
     _draw_segment(screen, lower_color, mid, end, lower_width, max(2, lower_width * 0.78))
     pygame.draw.circle(
         screen,
-        joint_color,
+        lower_color,
         mid,
         max(2, int(min(upper_width, lower_width) * JOINT_SIZE_RATIO)),
     )
@@ -254,7 +253,6 @@ def draw_fighter(
     foot_color = palette.get("feet", hand_color)
     hair_color = palette.get("hair", head_color)
     belt_color = palette.get("belt")
-    joint_color = palette.get("joint", (30, 30, 30))
     base_torso_shift = palette.get("idle_shift", 0.0) * width * facing
     base_torso_tilt = palette.get("idle_tilt", 0.0) * facing
 
@@ -846,7 +844,6 @@ def draw_fighter(
         screen,
         rear_leg_upper_color,
         rear_leg_lower_color,
-        joint_color,
         rear_hip,
         rear_knee,
         rear_foot,
@@ -857,7 +854,6 @@ def draw_fighter(
         screen,
         rear_arm_upper_color,
         rear_arm_lower_color,
-        joint_color,
         rear_shoulder,
         rear_elbow,
         rear_hand,
@@ -920,7 +916,6 @@ def draw_fighter(
         screen,
         front_leg_upper_color,
         front_leg_lower_color,
-        joint_color,
         front_hip,
         front_knee,
         front_foot,
@@ -931,7 +926,6 @@ def draw_fighter(
         screen,
         front_arm_upper_color,
         front_arm_lower_color,
-        joint_color,
         front_shoulder,
         front_elbow,
         front_hand,
