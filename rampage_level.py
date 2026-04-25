@@ -13,7 +13,7 @@ Controls:
   X             – heavy smash (wider ground attack)
   ESC / Return  – exit
 
-Win  : destroy 80 %+ of all building floor segments
+Win  : destroy 80%+ of all building floor segments
 Lose : player HP reaches 0
 """
 
@@ -430,8 +430,6 @@ class RampageLevel:
         if hasattr(self.acid, "tick"):
             self.acid.tick(dt)
 
-        self._frame += 0   # already incremented in run()
-
         # Timers
         if self._invuln  > 0: self._invuln  -= 1
         if self._atk_cd  > 0: self._atk_cd  -= 1
@@ -466,8 +464,9 @@ class RampageLevel:
         self._update_projectiles(dt)
 
         # Update debris
-        self._debris = [d for d in self._debris
-                        if (d.update(dt) or True) and d.life > 0]
+        for d in self._debris:
+            d.update(dt)
+        self._debris = [d for d in self._debris if d.life > 0]
 
         # Attack hits: vs buildings (ground / climbing)
         if self._atk_timer > 0:
