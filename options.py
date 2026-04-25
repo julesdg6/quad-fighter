@@ -139,11 +139,13 @@ class OptionsScreen:
         self._ctrl_held: dict = {}
         self._prev_hat  = (0, 0)
         self._prev_stick = (0.0, 0.0)
+        self._sfx = None  # set by run()
 
     # ── Public ────────────────────────────────────────────────────────────────
 
-    def run(self, acid_machine=None) -> None:
+    def run(self, acid_machine=None, sfx=None) -> None:
         """Block until the user leaves options.  Saves settings on exit."""
+        self._sfx = sfx
         while True:
             self.clock.tick(self.fps)
             for event in pygame.event.get():
@@ -293,6 +295,8 @@ class OptionsScreen:
     def _apply_volume(self, acid_machine) -> None:
         if acid_machine is not None:
             acid_machine.set_volume(self.settings.music_volume / 100.0)
+        if self._sfx is not None:
+            self._sfx.set_volume(self.settings.sfx_volume / 100.0)
 
     # ── Drawing ───────────────────────────────────────────────────────────────
 
