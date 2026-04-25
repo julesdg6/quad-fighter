@@ -31,6 +31,7 @@ MENU_HINT_COLOUR = (110, 100, 140)
 MENU_ITEMS = [
     ("Start Game",    "game"),
     ("Moto Level",    "moto"),
+    ("Rampage Level", "rampage"),
     ("Gauntlet Mode", "gauntlet"),
     ("Options",       "options"),
 ]
