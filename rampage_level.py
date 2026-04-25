@@ -69,6 +69,22 @@ _MAX_HELIS  = 3
 _MAX_TANKS  = 2
 _MAX_PLANES = 2
 
+# ── Physics ───────────────────────────────────────────────────────────────────
+_DEBRIS_GRAVITY       = 300.0   # px/s² downward acceleration for debris chunks
+_SHELL_GRAVITY        = 260.0   # px/s² downward acceleration for tank shells
+
+# ── Projectile speeds ─────────────────────────────────────────────────────────
+_HELI_BULLET_SPEED    = 220.0   # downward speed of helicopter bullets (px/s)
+_TANK_SHELL_SPEED_H   = 160.0   # initial horizontal speed of tank shells (px/s)
+_BOMB_FALL_SPEED      = 180.0   # initial downward speed of plane bombs (px/s)
+
+# ── Camera ────────────────────────────────────────────────────────────────────
+_CAM_SMOOTHING        = 6.0     # camera lerp rate (higher = snappier follow)
+_BG_PARALLAX_FACTOR   = 0.3     # background scrolls at this fraction of camera speed
+
+# ── Visual ────────────────────────────────────────────────────────────────────
+_HELI_BLADE_ROT_SPEED = 720.0   # blade rotation speed (degrees/s)
+
 # ── Colours ───────────────────────────────────────────────────────────────────
 _SKY_TOP    = (8,  10, 24)
 _SKY_BOT    = (20, 14, 44)
@@ -173,7 +189,7 @@ class _Debris:
         self.col  = random.choice([_BLDG_DAMAGE, (110, 60, 40), (80, 70, 60)])
 
     def update(self, dt):
-        self.vy  += 300 * dt     # gravity
+        self.vy  += _DEBRIS_GRAVITY * dt
         self.wx  += self.vx * dt
         self.wy  += self.vy * dt
         self.life -= 1
@@ -192,10 +208,10 @@ class _Helicopter:
         self.blade_rot = 0.0
 
     def update(self, dt, player_wx, cam_x):
-        self.blade_rot += dt * 720
+        self.blade_rot += dt * _HELI_BLADE_ROT_SPEED
         self.wx += self.vx * dt
         # Gentle bob
-        self.wy += math.sin(self.wx * 0.01) * 0.3
+        self.wy += math.sin(self.wx * 0.01) * _BG_PARALLAX_FACTOR
         # Reverse at screen edges (world coords)
         if self.wx < 80 or self.wx > _WORLD_W - 80:
             self.vx = -self.vx
@@ -281,7 +297,7 @@ class _Projectile:
 
     def update(self, dt):
         if self.kind == "shell":
-            self.vy += 260 * dt    # gravity for arcing shells
+            self.vy += _SHELL_GRAVITY * dt
         self.wx += self.vx * dt
         self.wy += self.vy * dt
         if self.wy > _GROUND_Y + 40 or self.wx < -100 or self.wx > _WORLD_W + 100:
@@ -450,7 +466,7 @@ class RampageLevel:
         # Smooth camera follow
         target_cam = self.player_wx - self.width // 2 + _PLR_W // 2
         target_cam = _clamp(target_cam, 0, _WORLD_W - self.width)
-        self._cam_x += (target_cam - self._cam_x) * 6.0 * dt
+        self._cam_x += (target_cam - self._cam_x) * _CAM_SMOOTHING * dt
 
         # Spawn enemies
         self._spawn_enemies()
@@ -715,7 +731,7 @@ class RampageLevel:
                 dx   = px - h.wx
                 dy   = (self.player_wy + _PLR_H // 2) - h.wy
                 dist = math.hypot(dx, dy) or 1
-                spd  = 220.0
+                spd  = _HELI_BULLET_SPEED
                 self._projectiles.append(
                     _Projectile("bullet", h.wx, h.wy,
                                 dx / dist * spd, dy / dist * spd,
@@ -734,9 +750,9 @@ class RampageLevel:
                 dy   = py - t.wy
                 # Choose vy so the shell arcs and reaches target
                 travel  = abs(dx) or 1
-                vx      = (dx / abs(dx)) * 160.0
+                vx      = (dx / abs(dx)) * _TANK_SHELL_SPEED_H
                 time_to = travel / abs(vx)
-                vy      = (dy - 0.5 * 260 * time_to * time_to) / max(time_to, 0.01)
+                vy      = (dy - 0.5 * _SHELL_GRAVITY * time_to * time_to) / max(time_to, 0.01)
                 vy      = _clamp(vy, -400, -80)
                 self._projectiles.append(
                     _Projectile("shell", t.wx, t.wy - 20, vx, vy,
@@ -751,7 +767,7 @@ class RampageLevel:
             # Drop bomb when roughly overhead
             if not p.dropped and abs(p.wx - px) < 120:
                 self._projectiles.append(
-                    _Projectile("bomb", p.wx, p.wy, 0, 180, _PLANE_BOMB_DMG))
+                _Projectile("bomb", p.wx, p.wy, 0, _BOMB_FALL_SPEED, _PLANE_BOMB_DMG))
                 self.sfx.play("boss_attack")
                 p.dropped = True
 
@@ -813,7 +829,7 @@ class RampageLevel:
 
     def _draw_bg_silhouette(self, s, cam_x):
         """Distant city silhouette – scrolls at half speed (parallax)."""
-        parallax = cam_x * 0.3
+        parallax = cam_x * _BG_PARALLAX_FACTOR
         widths  = [80, 60, 110, 70, 90, 65, 100, 55, 85, 75, 95, 50]
         heights = [160, 200, 180, 220, 140, 190, 170, 210, 150, 185, 165, 200]
         x = 0
