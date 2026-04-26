@@ -59,7 +59,7 @@ def _draw_logo(screen, width, height, frame, font_logo, font_tagline):
     scale = math.sqrt(scale)
 
     cx = width // 2
-    logo_cy = int(height * 0.40)
+    logo_cy = int(height * 0.30)
 
     # --- Glow layer (slightly enlarged, semi-transparent purple) ---
     glow_surf = font_logo.render("QUAD FIGHTER", True, GLOW_COLOUR)
@@ -112,10 +112,10 @@ def _draw_logo(screen, width, height, frame, font_logo, font_tagline):
 def _draw_menu(screen, width, height, frame, font_menu, font_hint, selection: int, logo_bottom_y: int):
     """Draw the Start Game / Options menu below the logo."""
     cx = width // 2
-    menu_top = logo_bottom_y + 30
+    menu_top = logo_bottom_y + 24
 
     for i, (label, _) in enumerate(MENU_ITEMS):
-        item_y = menu_top + i * 56
+        item_y = menu_top + i * 48
         is_sel = (i == selection)
 
         if is_sel:
@@ -257,7 +257,7 @@ class SplashScreen:
         # Replicate the logo_cy + size calculation used inside _draw_logo
         scale = min(1.0, frame / SCALE_IN_FRAMES) if SCALE_IN_FRAMES > 0 else 1.0
         scale = math.sqrt(scale)
-        logo_cy = int(self.height * 0.40)
+        logo_cy = int(self.height * 0.30)
         logo_h = int(self.font_logo.size("QUAD FIGHTER")[1] * scale)
         tag_h  = int(self.font_tagline.size("ARCADE BEAT-EM-UP")[1] * scale * 0.9)
         return logo_cy + logo_h // 2 + tag_h * 2 + 14
