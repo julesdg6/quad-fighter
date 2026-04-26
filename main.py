@@ -194,6 +194,7 @@ environment_objects = build_environment_objects()
 break_effects = []
 
 acid = AcidMachine()
+acid.set_volume(settings.music_volume / 100.0)
 sfx = SfxPlayer()
 sfx.set_volume(settings.sfx_volume / 100.0)
 
