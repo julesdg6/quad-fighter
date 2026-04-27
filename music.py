@@ -254,12 +254,14 @@ class AcidMachine:
 
         self._bpm = BPM_BASE
         self._step_secs = 60.0 / (self._bpm * 4)
+        self._target_bpm = None  # None = use BPM_BASE drift; set externally for game modes
         self._rng = random.Random()  # unseeded – different music every session
         self._step = 0
         self._bar = 0
         self._time_acc = 0.0
         self._root_idx = 0
         self._root = 36  # C2
+        self._volume = 1.0
 
         # Drum sounds (generated once)
         self._kick    = _make_kick()
@@ -317,6 +319,7 @@ class AcidMachine:
                             if key in self._note_cache:
                                 continue
                         sound = _make_bass_note(midi, accent, step_secs, wf)
+                        sound.set_volume(self._volume)
                         with self._cache_lock:
                             self._note_cache[key] = sound
 
@@ -330,6 +333,7 @@ class AcidMachine:
             return cached
         # Not cached yet – generate inline (rare after warm-up)
         sound = _make_bass_note(midi, accent, self._step_secs, waveform)
+        sound.set_volume(self._volume)
         with self._cache_lock:
             self._note_cache[key] = sound
         return sound
@@ -352,8 +356,11 @@ class AcidMachine:
             self._bass_pattern = _gen_bass_pattern(self._root, self._rng)
             self._bass_pattern2 = _gen_bass_pattern(self._root, self._rng)
 
-        # Subtle BPM drift every 16 bars (±3 BPM) – keeps it alive
-        if self._bar % 16 == 0:
+        # Subtle BPM drift every 16 bars (±3 BPM) – only when no external target is set
+        if self._target_bpm is not None:
+            self._bpm = self._target_bpm
+            self._step_secs = 60.0 / (self._bpm * 4)
+        elif self._bar % 16 == 0:
             self._bpm = BPM_BASE + self._rng.randint(-3, 3)
             self._step_secs = 60.0 / (self._bpm * 4)
 
@@ -398,8 +405,30 @@ class AcidMachine:
         if not self._enabled:
             return
         v = max(0.0, min(1.0, volume))
-        self._ch_kick.set_volume(v)
-        self._ch_snare.set_volume(v * 0.90)
-        self._ch_hihat.set_volume(v * 0.70)
-        self._ch_bass.set_volume(v, v * 0.75)
-        self._ch_bass2.set_volume(v * 0.75, v)
+        self._volume = v
+        # Set Sound-level volumes for drums (reliable across all pygame-ce versions)
+        self._kick.set_volume(v)
+        self._snare.set_volume(v * 0.90)
+        self._hihat.set_volume(v * 0.70)
+        self._openhat.set_volume(v * 0.70)
+        # Apply volume to all cached bass sounds
+        with self._cache_lock:
+            for sound in self._note_cache.values():
+                sound.set_volume(v)
+        # Keep stereo panning on bass channels (volume-independent ratios)
+        self._ch_bass.set_volume(1.0, 0.75)
+        self._ch_bass2.set_volume(0.75, 1.0)
+
+    def set_target_bpm(self, bpm: int) -> None:
+        """Set target BPM (applied immediately and at each bar boundary).
+
+        Pass 0 or None to return to the default BPM_BASE drift behaviour.
+        """
+        if not self._enabled:
+            return
+        if not bpm:
+            self._target_bpm = None
+            return
+        self._target_bpm = max(60, min(300, int(bpm)))
+        self._bpm = self._target_bpm
+        self._step_secs = 60.0 / (self._bpm * 4)
