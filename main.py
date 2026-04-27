@@ -16,6 +16,8 @@ from theme import get_theme, next_theme_name
 from moto_level import MotoLevel
 from rampage_level import RampageLevel
 from gauntlet_level import GauntletLevel
+from version import GAME_VERSION, BUILD_NUMBER, PROTOCOL_VERSION
+from net_client import NetClient
 
 pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.init()
@@ -24,6 +26,12 @@ pygame.joystick.init()
 # Load persistent settings
 settings = Settings()
 settings.load()
+
+# Log version on launch
+print(f"Quad Fighter  v{GAME_VERSION}  build {BUILD_NUMBER}  protocol {PROTOCOL_VERSION}")
+
+# Network client (non-blocking; connect from the options screen)
+net_client = NetClient()
 
 # Detect first connected joystick (Xbox controller or similar)
 def _init_joystick():
@@ -257,7 +265,7 @@ if QUAD_FIGHTER_AUTO_EXIT_FRAMES == 0:
     while True:
         result = SplashScreen(screen, WIDTH, HEIGHT, FPS, joystick=joystick).run()
         if result == "options":
-            OptionsScreen(screen, WIDTH, HEIGHT, FPS, settings, joystick=joystick).run(acid, sfx)
+            OptionsScreen(screen, WIDTH, HEIGHT, FPS, settings, joystick=joystick, net_client=net_client).run(acid, sfx)
             acid.set_volume(settings.music_volume / 100.0)
             sfx.set_volume(settings.sfx_volume / 100.0)
         elif result == "moto":

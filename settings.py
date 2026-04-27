@@ -64,6 +64,10 @@ AXIS_DEADZONE = 0.3
 
 SETTINGS_FILE = "settings.json"
 
+# Default network settings
+DEFAULT_SERVER_IP   = "127.0.0.1"
+DEFAULT_SERVER_PORT = 7777
+
 
 # ── Settings class ────────────────────────────────────────────────────────────
 
@@ -76,6 +80,9 @@ class Settings:
         self.keyboard:    dict = dict(DEFAULT_KEYBOARD)
         self.keyboard_p2: dict = dict(DEFAULT_KEYBOARD_P2)
         self.controller:  dict = dict(DEFAULT_CONTROLLER)
+        # Network
+        self.server_ip:   str = DEFAULT_SERVER_IP
+        self.server_port: int = DEFAULT_SERVER_PORT
 
     # ── Persistence ───────────────────────────────────────────────────────────
 
@@ -100,6 +107,8 @@ class Settings:
                 for action, btn_val in data["controller"].items():
                     if action in self.controller:
                         self.controller[action] = int(btn_val)
+            self.server_ip   = str(data.get("server_ip",   self.server_ip))
+            self.server_port = int(data.get("server_port", self.server_port))
         except Exception:
             pass  # corrupt file – use defaults
 
@@ -111,6 +120,8 @@ class Settings:
             "keyboard":     dict(self.keyboard),
             "keyboard_p2":  dict(self.keyboard_p2),
             "controller":   dict(self.controller),
+            "server_ip":    self.server_ip,
+            "server_port":  self.server_port,
         }
         try:
             with open(path, "w", encoding="utf-8") as fh:
