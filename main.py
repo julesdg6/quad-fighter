@@ -16,6 +16,7 @@ from theme import get_theme, next_theme_name
 from moto_level import MotoLevel
 from rampage_level import RampageLevel
 from gauntlet_level import GauntletLevel
+from pang_level import PangLevel
 from version import GAME_VERSION, BUILD_NUMBER, PROTOCOL_VERSION
 from net_client import NetClient
 
@@ -280,6 +281,10 @@ if QUAD_FIGHTER_AUTO_EXIT_FRAMES == 0:
             GauntletLevel(screen, WIDTH, HEIGHT, FPS, settings, font, acid, sfx,
                           joystick=joystick).run()
             # Loop back to the splash after the gauntlet level ends
+        elif result == "pang":
+            PangLevel(screen, WIDTH, HEIGHT, FPS, settings, font, acid, sfx,
+                      joystick=joystick, joystick2=joystick2).run()
+            # Loop back to the splash after the pang level ends
         else:
             break  # "game" – proceed to gameplay
 
