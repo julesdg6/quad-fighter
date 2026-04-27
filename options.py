@@ -3,6 +3,7 @@
 import pygame
 
 from settings import Settings, CONTROLLER_BUTTON_NAMES, AXIS_DEADZONE
+from version import GAME_VERSION, PROTOCOL_VERSION, BUILD_NUMBER
 
 # ── Layout constants ──────────────────────────────────────────────────────────
 
@@ -20,6 +21,10 @@ MAX_VISIBLE    = VIEWPORT_H // ITEM_HEIGHT   # ~18
 SLIDER_WIDTH   = 140
 SLIDER_HEIGHT  = 10
 VOLUME_STEP    = 5         # change per left/right press
+
+# Network text-input limits
+MAX_IP_LENGTH   = 39       # max IPv6 address string length
+MAX_PORT_DIGITS = 5        # max digits in a port number (0–65535)
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 
@@ -60,12 +65,18 @@ def _build_items() -> list:
         {"type": "ctrl_bind", "action": "crouch",      "label": "Crouch"},
         {"type": "ctrl_bind", "action": "grab",        "label": "Grab"},
         {"type": "ctrl_bind", "action": "start_pause", "label": "Start / Pause"},
+        {"type": "section",    "label": "NETWORK"},
+        {"type": "net_text",   "key": "server_ip",   "label": "Server IP"},
+        {"type": "net_port",   "key": "server_port", "label": "Server Port"},
+        {"type": "net_action", "action": "connect",  "label": "Connect"},
+        {"type": "net_status", "label": "Status"},
+        {"type": "net_info",   "label": "Version"},
         {"type": "back", "label": "Back"},
     ]
 
 
 def _is_selectable(item: dict) -> bool:
-    return item["type"] not in ("section",)
+    return item["type"] not in ("section", "net_status", "net_info")
 
 
 # ── Helper: draw gradient background ─────────────────────────────────────────
@@ -108,6 +119,7 @@ class OptionsScreen:
         fps: int,
         settings: Settings,
         joystick,          # pygame.joystick.Joystick or None
+        net_client=None,   # net_client.NetClient or None
     ):
         self.screen   = screen
         self.width    = width
@@ -115,6 +127,7 @@ class OptionsScreen:
         self.fps      = fps
         self.settings = settings
         self.joystick = joystick
+        self.net_client = net_client
         self.clock    = pygame.time.Clock()
 
         self._bg = pygame.Surface((width, height))
@@ -132,8 +145,9 @@ class OptionsScreen:
         self._scroll    = 0          # first item index shown in viewport
 
         # Remapping state
-        self._waiting   = None       # None | "key" | "button"
+        self._waiting   = None       # None | "key" | "button" | "net_text" | "net_port"
         self._wait_action = None     # action name being rebound
+        self._text_buf   = ""        # buffer for net_text / net_port input
 
         # Controller repeat: (action, frames_held) for held D-pad / stick
         self._ctrl_held: dict = {}
@@ -181,6 +195,41 @@ class OptionsScreen:
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self._waiting = None
                 self._wait_action = None
+            return None
+
+        # ---- Waiting for network text/port input ----------------------------
+        if self._waiting in ("net_text", "net_port"):
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    # Cancel – discard buffer
+                    self._waiting = None
+                    self._wait_action = None
+                    self._text_buf = ""
+                elif event.key == pygame.K_RETURN:
+                    # Commit
+                    if self._waiting == "net_text":
+                        if self._text_buf:
+                            self.settings.server_ip = self._text_buf
+                    elif self._waiting == "net_port":
+                        try:
+                            port = int(self._text_buf)
+                            if 1 <= port <= 65535:
+                                self.settings.server_port = port
+                        except ValueError:
+                            pass
+                    self._waiting = None
+                    self._wait_action = None
+                    self._text_buf = ""
+                elif event.key == pygame.K_BACKSPACE:
+                    self._text_buf = self._text_buf[:-1]
+                else:
+                    ch = event.unicode
+                    if self._waiting == "net_port":
+                        if ch.isdigit() and len(self._text_buf) < MAX_PORT_DIGITS:
+                            self._text_buf += ch
+                    else:
+                        if ch and ch.isprintable() and len(self._text_buf) < MAX_IP_LENGTH:
+                            self._text_buf += ch
             return None
 
         # ---- Normal navigation -----------------------------------------------
@@ -290,7 +339,30 @@ class OptionsScreen:
         elif item["type"] == "ctrl_bind":
             self._waiting = "button"
             self._wait_action = item["action"]
+        elif item["type"] == "net_text":
+            self._waiting = "net_text"
+            self._wait_action = item["key"]
+            self._text_buf = self.settings.server_ip
+        elif item["type"] == "net_port":
+            self._waiting = "net_port"
+            self._wait_action = item["key"]
+            self._text_buf = str(self.settings.server_port)
+        elif item["type"] == "net_action":
+            self._handle_net_action(item["action"])
         return None
+
+    def _handle_net_action(self, action: str) -> None:
+        """Connect or disconnect from the server."""
+        if self.net_client is None:
+            return
+        if action == "connect":
+            if self.net_client.is_connected():
+                self.net_client.disconnect()
+            else:
+                self.net_client.connect(
+                    self.settings.server_ip,
+                    self.settings.server_port,
+                )
 
     def _apply_volume(self, acid_machine) -> None:
         if acid_machine is not None:
@@ -334,6 +406,11 @@ class OptionsScreen:
             self.screen.blit(surf, (cx - surf.get_width() // 2, self.height - 28))
         elif self._waiting == "button":
             msg = f"Press a button for  [{self._wait_action.replace('_', ' ').upper()}]  (Esc to cancel)"
+            surf = self._font_hint.render(msg, True, COL_WAIT)
+            self.screen.blit(surf, (cx - surf.get_width() // 2, self.height - 28))
+        elif self._waiting in ("net_text", "net_port"):
+            label = "IP" if self._waiting == "net_text" else "Port"
+            msg = f"Enter {label}: {self._text_buf}_  (Enter confirm  Esc cancel)"
             surf = self._font_hint.render(msg, True, COL_WAIT)
             self.screen.blit(surf, (cx - surf.get_width() // 2, self.height - 28))
         else:
@@ -401,3 +478,66 @@ class OptionsScreen:
                 # Simple left arrow indicator
                 arrow = self._font_item.render("◄", True, COL_SEL)
                 self.screen.blit(arrow, (cx - surf.get_width() // 2 - 22, y + 2))
+
+        elif itype == "net_text":
+            label_surf = self._font_item.render(item["label"], True, col)
+            self.screen.blit(label_surf, (cx - 200, y + 2))
+            editing = self._waiting == "net_text" and self._wait_action == item["key"]
+            display = (self._text_buf + "_") if editing else self.settings.server_ip
+            val_col = COL_WAIT if editing else col
+            val_surf = self._font_item.render(display, True, val_col)
+            self.screen.blit(val_surf, (cx + 60, y + 2))
+
+        elif itype == "net_port":
+            label_surf = self._font_item.render(item["label"], True, col)
+            self.screen.blit(label_surf, (cx - 200, y + 2))
+            editing = self._waiting == "net_port" and self._wait_action == item["key"]
+            display = (self._text_buf + "_") if editing else str(self.settings.server_port)
+            val_col = COL_WAIT if editing else col
+            val_surf = self._font_item.render(display, True, val_col)
+            self.screen.blit(val_surf, (cx + 60, y + 2))
+
+        elif itype == "net_action":
+            action = item.get("action", "")
+            if self.net_client is not None and self.net_client.is_connected():
+                label_text = "Disconnect"
+            else:
+                label_text = "Connect"
+            surf = self._font_item.render(label_text, True, col)
+            self.screen.blit(surf, (cx - 200, y + 2))
+            if selected:
+                arrow = self._font_item.render("►", True, COL_SEL)
+                self.screen.blit(arrow, (cx - 200 - 22, y + 2))
+
+        elif itype == "net_status":
+            label_surf = self._font_sec.render("Status:", True, COL_SEC)
+            self.screen.blit(label_surf, (cx - 200, y + 4))
+            if self.net_client is not None:
+                status = self.net_client.status
+                reject = self.net_client.reject_message
+            else:
+                status = "Offline (no client)"
+                reject = ""
+            # Colour-code the status
+            if status == "Connected":
+                status_col = (80, 220, 80)
+            elif "mismatch" in status.lower() or status in ("Rejected", "Error"):
+                status_col = (220, 80, 80)
+            elif "connect" in status.lower():
+                status_col = (220, 180, 60)
+            else:
+                status_col = COL_DIM
+            status_surf = self._font_item.render(status, True, status_col)
+            self.screen.blit(status_surf, (cx + 60, y + 4))
+            # Show rejection message on the next pixel row if present
+            if reject:
+                reject_short = reject[:60] + ("…" if len(reject) > 60 else "")
+                rej_surf = self._font_hint.render(reject_short, True, (220, 80, 80))
+                self.screen.blit(rej_surf, (cx - 200, y + ITEM_HEIGHT + 2))
+
+        elif itype == "net_info":
+            label_surf = self._font_sec.render("Client:", True, COL_SEC)
+            self.screen.blit(label_surf, (cx - 200, y + 4))
+            info = f"v{GAME_VERSION}  build {BUILD_NUMBER}  protocol {PROTOCOL_VERSION}"
+            info_surf = self._font_hint.render(info, True, COL_DIM)
+            self.screen.blit(info_surf, (cx + 60, y + 4))
