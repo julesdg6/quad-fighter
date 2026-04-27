@@ -72,7 +72,13 @@ def _shade(rgb, factor):
 
 
 def _apply_suit_colour(palette, base_rgb):
-    """Override the suit-related palette keys with shaded variants of *base_rgb*."""
+    """Override the suit-related palette keys with shaded variants of *base_rgb*.
+
+    Factors mirror the relative lightness of the street-theme default palette:
+    the pelvis/waist band is intentionally slightly brighter (1.20) than the
+    chest.  ``_shade`` clamps each channel to 0–255, so very bright base
+    colours will saturate cleanly rather than wrap.
+    """
     palette["chest"]           = _shade(base_rgb, 1.00)
     palette["torso"]           = _shade(base_rgb, 0.88)
     palette["pelvis"]          = _shade(base_rgb, 1.20)
