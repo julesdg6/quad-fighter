@@ -35,6 +35,12 @@ IDLE_STANCE_DROP_RATIO = 0.08      # deep fighting guard crouch (was 0.035)
 FIST_WIDTH_MULTIPLIER = 1.9        # chunky brawler fists (was 1.8 original, 2.2 too large)
 WALK_BOB_AMPLITUDE = 0.35          # less floaty vertical bob during walk (was 0.55)
 
+# Face feature colours / darkening amounts
+EYE_SCLERA_COLOR = (238, 228, 212)
+EYE_IRIS_COLOR = (18, 14, 12)
+NOSE_DARKEN_AMOUNT = 24
+MOUTH_DARKEN_AMOUNT = 36
+
 
 def _joint_midpoint(a, b, lift, bend):
     return (
@@ -651,13 +657,20 @@ def draw_fighter(
         (int(head_center[0] - head_radius * 0.56), int(head_center[1] - head_radius * 1.38)),
     ]
 
-    # Minimal face: small dark chin-side nose marker and a visible eyebrow
-    face_tip_x = int(head_center[0] + facing * (head_radius + 2))
-    face_poly = [
-        (face_tip_x, head_center[1]),
-        (int(head_center[0] + facing * (head_radius - 2)), head_center[1] - 4),
-        (int(head_center[0] + facing * (head_radius - 3)), head_center[1] + 5),
-    ]
+    # ── Face features (all on the forward-facing side) ──────────────────────────
+    eye_x = int(head_center[0] + facing * head_radius * 0.44)
+    eye_y = int(head_center[1] - head_radius * 0.18)
+    eye_w = max(3, int(head_radius * 0.52))
+    eye_h = max(2, int(head_radius * 0.34))
+    brow_y = int(eye_y - eye_h * 1.0)
+    brow_x0 = int(eye_x - eye_w * 0.55)
+    brow_x1 = int(eye_x + eye_w * 0.55)
+    nose_x = int(head_center[0] + facing * head_radius * 0.86)
+    nose_y = int(head_center[1] + head_radius * 0.06)
+    nose_r = max(1, int(head_radius * 0.14))
+    mouth_y = int(head_center[1] + head_radius * 0.46)
+    mouth_x0 = int(head_center[0] + facing * head_radius * 0.36)
+    mouth_x1 = int(head_center[0] + facing * head_radius * 0.72)
 
     front_shoulder = right_shoulder if facing > 0 else left_shoulder
     rear_shoulder = left_shoulder if facing > 0 else right_shoulder
@@ -929,13 +942,25 @@ def draw_fighter(
     pygame.draw.polygon(screen, head_color, head_poly)
     if hair_color != head_color:
         pygame.draw.polygon(screen, hair_color, hair_poly)
-    pygame.draw.polygon(screen, face_color, face_poly)
 
-    # Small eye dot facing forward – helps direction readability
-    eye_x = int(head_center[0] + facing * head_radius * 0.46)
-    eye_y = int(head_center[1] - head_radius * 0.14)
-    eye_size = max(1, head_radius // 5)
-    pygame.draw.rect(screen, (10, 10, 10), (eye_x - eye_size, eye_y - eye_size, eye_size * 2 + 1, eye_size + 1))
+    # Eye: white sclera + dark iris/pupil
+    pygame.draw.ellipse(screen, EYE_SCLERA_COLOR, (eye_x - eye_w // 2, eye_y - eye_h // 2, eye_w, eye_h))
+    pupil_w = max(2, eye_w // 2)
+    pupil_h = max(2, eye_h // 2)
+    pygame.draw.ellipse(screen, EYE_IRIS_COLOR, (eye_x - pupil_w // 2, eye_y - pupil_h // 2, pupil_w, pupil_h))
+
+    # Eyebrow: uses hair colour, slight inward angle
+    brow_w = max(1, head_radius // 6)
+    pygame.draw.line(screen, hair_color, (brow_x0, brow_y), (brow_x1, brow_y - 1), brow_w)
+
+    # Nose: small dark dot at the forward edge
+    nose_dark = (max(0, face_color[0] - NOSE_DARKEN_AMOUNT), max(0, face_color[1] - NOSE_DARKEN_AMOUNT), max(0, face_color[2] - NOSE_DARKEN_AMOUNT))
+    pygame.draw.circle(screen, nose_dark, (nose_x, nose_y), nose_r)
+
+    # Mouth: short horizontal line
+    mouth_dark = (max(0, face_color[0] - MOUTH_DARKEN_AMOUNT), max(0, face_color[1] - MOUTH_DARKEN_AMOUNT), max(0, face_color[2] - MOUTH_DARKEN_AMOUNT))
+    mouth_w = max(1, head_radius // 7)
+    pygame.draw.line(screen, mouth_dark, (mouth_x0, mouth_y), (mouth_x1, mouth_y), mouth_w)
 
     # Front limbs (layered in front)
     _draw_bent_limb(
