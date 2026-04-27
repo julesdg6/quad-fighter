@@ -144,6 +144,13 @@ font = pygame.font.SysFont(None, 24)
 player = Player(PLAYER_SPAWN_X, HEIGHT - 232, WORLD_WIDTH, HEIGHT)
 player2 = Player(PLAYER_SPAWN_X + 64, HEIGHT - 208, WORLD_WIDTH, HEIGHT)
 player2.palette_variant = "player2"
+
+def _apply_appearance(s):
+    """Sync player appearance colour indices from *s* (Settings)."""
+    player.suit_colour_idx = s.suit_colour_idx
+    player.hair_colour_idx = s.hair_colour_idx
+
+_apply_appearance(settings)
 enemies_beaten = 0
 last_attack_id = player.attack_id
 last_attack_id2 = player2.attack_id
@@ -268,6 +275,8 @@ if QUAD_FIGHTER_AUTO_EXIT_FRAMES == 0:
             OptionsScreen(screen, WIDTH, HEIGHT, FPS, settings, joystick=joystick, net_client=net_client).run(acid, sfx)
             acid.set_volume(settings.music_volume / 100.0)
             sfx.set_volume(settings.sfx_volume / 100.0)
+            # Sync appearance settings to player objects
+            _apply_appearance(settings)
         elif result == "moto":
             MotoLevel(screen, WIDTH, HEIGHT, FPS, settings, font, acid, sfx,
                       joystick=joystick).run()

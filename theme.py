@@ -38,19 +38,77 @@ def _hurt(normal, tint=(255, 200, 200), blend=0.45):
     return out
 
 
-def build_palette(theme, variant, hurt=False):
+# ── Player colour customisation ───────────────────────────────────────────────
+
+# Available karate suit base colours.  Index 0 = "use theme default".
+SUIT_COLOURS = [
+    {"name": "Default"},
+    {"name": "White",  "base": (230, 225, 215)},
+    {"name": "Blue",   "base": (48,  62,  140)},
+    {"name": "Red",    "base": (160, 32,  32)},
+    {"name": "Black",  "base": (28,  28,  32)},
+    {"name": "Green",  "base": (36,  100, 40)},
+    {"name": "Purple", "base": (80,  32,  128)},
+    {"name": "Orange", "base": (200, 90,  20)},
+    {"name": "Gold",   "base": (180, 148, 20)},
+]
+
+# Available hair colours.  Index 0 = "use theme default".
+HAIR_COLOURS = [
+    {"name": "Default"},
+    {"name": "Auburn",  "colour": (156, 44,  16)},
+    {"name": "Black",   "colour": (20,  18,  16)},
+    {"name": "Brown",   "colour": (90,  54,  28)},
+    {"name": "Blonde",  "colour": (196, 160, 48)},
+    {"name": "Silver",  "colour": (200, 198, 192)},
+    {"name": "Red",     "colour": (180, 40,  20)},
+    {"name": "Blue",    "colour": (30,  60,  160)},
+]
+
+
+def _shade(rgb, factor):
+    """Scale an RGB tuple by *factor*, clamped to 0–255."""
+    return tuple(max(0, min(255, int(c * factor))) for c in rgb)
+
+
+def _apply_suit_colour(palette, base_rgb):
+    """Override the suit-related palette keys with shaded variants of *base_rgb*.
+
+    Factors mirror the relative lightness of the street-theme default palette:
+    the pelvis/waist band is intentionally slightly brighter (1.20) than the
+    chest.  ``_shade`` clamps each channel to 0–255, so very bright base
+    colours will saturate cleanly rather than wrap.
+    """
+    palette["chest"]           = _shade(base_rgb, 1.00)
+    palette["torso"]           = _shade(base_rgb, 0.88)
+    palette["pelvis"]          = _shade(base_rgb, 1.20)
+    palette["front_leg_upper"] = _shade(base_rgb, 1.12)
+    palette["front_leg_lower"] = _shade(base_rgb, 0.90)
+    palette["rear_leg_upper"]  = _shade(base_rgb, 0.80)
+    palette["rear_leg_lower"]  = _shade(base_rgb, 0.70)
+
+
+def build_palette(theme, variant, hurt=False, suit_colour_idx=0, hair_colour_idx=0):
     """
     Build a draw_fighter palette dict for *variant* ('player', 'raider',
     'brawler', 'boss') using the given theme.
 
     Merges normal/hurt colour dict with the per-variant props (belt colour,
     body proportions, etc.) that never change with hurt state.
+
+    Optional *suit_colour_idx* and *hair_colour_idx* override the theme's
+    default suit and hair colours before the hurt-flash tint is applied.
     """
     chars = theme["characters"][variant]
-    normal = chars["normal"]
+    normal = dict(chars["normal"])
+    # Apply custom colour overrides before hurt tinting so the flash works correctly.
+    if 0 < suit_colour_idx < len(SUIT_COLOURS):
+        _apply_suit_colour(normal, SUIT_COLOURS[suit_colour_idx]["base"])
+    if 0 < hair_colour_idx < len(HAIR_COLOURS):
+        normal["hair"] = HAIR_COLOURS[hair_colour_idx]["colour"]
     tint = theme.get("hurt_tint", (255, 200, 200))
     blend = theme.get("hurt_blend", 0.45)
-    colours = _hurt(normal, tint, blend) if hurt else dict(normal)
+    colours = _hurt(normal, tint, blend) if hurt else normal
     colours.update(chars.get("props", {}))
     return colours
 
