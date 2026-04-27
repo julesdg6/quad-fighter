@@ -297,12 +297,28 @@ if QUAD_FIGHTER_AUTO_EXIT_FRAMES == 0:
         else:
             break  # "game" – proceed to gameplay
 
+# Start main game at 90 BPM (calm baseline; escalates with enemies/boss)
+acid.set_target_bpm(90)
+
 # Main loop
 running = True
 frame_count = 0
 screenshot_saved = False
 while running:
     dt = clock.tick(FPS) / 1000.0
+    # Update target BPM based on live enemies / boss presence (single pass)
+    _boss_alive = False
+    _live_count = 0
+    for _e in enemies:
+        if _e.health > 0:
+            if _e.is_boss:
+                _boss_alive = True
+            else:
+                _live_count += 1
+    if _boss_alive:
+        acid.set_target_bpm(174)
+    else:
+        acid.set_target_bpm(90 + 10 * _live_count)
     acid.tick(dt)
     # Draw background: sky gradient + far/mid buildings
     draw_background_pre_lane(screen, camera_x, bg_data, WIDTH, HEIGHT, LANE_TOP)
