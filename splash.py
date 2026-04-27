@@ -33,6 +33,7 @@ MENU_ITEMS = [
     ("Moto Level",    "moto"),
     ("Rampage Level", "rampage"),
     ("Gauntlet Mode", "gauntlet"),
+    ("Pang Mode",     "pang"),
     ("Options",       "options"),
 ]
 
