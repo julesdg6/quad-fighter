@@ -4,6 +4,7 @@ import pygame
 
 from settings import Settings, CONTROLLER_BUTTON_NAMES, AXIS_DEADZONE
 from version import GAME_VERSION, PROTOCOL_VERSION, BUILD_NUMBER
+from theme import SUIT_COLOURS, HAIR_COLOURS
 
 # ── Layout constants ──────────────────────────────────────────────────────────
 
@@ -47,6 +48,9 @@ def _build_items() -> list:
         {"type": "section", "label": "AUDIO"},
         {"type": "audio",   "key": "music_volume", "label": "Music Volume"},
         {"type": "audio",   "key": "sfx_volume",   "label": "SFX Volume"},
+        {"type": "section", "label": "APPEARANCE"},
+        {"type": "colour_pick", "key": "suit_colour_idx", "label": "Suit Colour",  "colours": SUIT_COLOURS},
+        {"type": "colour_pick", "key": "hair_colour_idx", "label": "Hair Colour",  "colours": HAIR_COLOURS},
         {"type": "section", "label": "KEYBOARD CONTROLS"},
         {"type": "kb_bind", "action": "move_left",   "label": "Move Left"},
         {"type": "kb_bind", "action": "move_right",  "label": "Move Right"},
@@ -319,6 +323,10 @@ class OptionsScreen:
             val = getattr(self.settings, item["key"])
             setattr(self.settings, item["key"], max(0, val - VOLUME_STEP))
             self._apply_volume(acid_machine)
+        elif item["type"] == "colour_pick":
+            colours = item["colours"]
+            val = getattr(self.settings, item["key"])
+            setattr(self.settings, item["key"], (val - 1) % len(colours))
         return None
 
     def _adjust_right(self, acid_machine) -> str | None:
@@ -327,6 +335,10 @@ class OptionsScreen:
             val = getattr(self.settings, item["key"])
             setattr(self.settings, item["key"], min(100, val + VOLUME_STEP))
             self._apply_volume(acid_machine)
+        elif item["type"] == "colour_pick":
+            colours = item["colours"]
+            val = getattr(self.settings, item["key"])
+            setattr(self.settings, item["key"], (val + 1) % len(colours))
         return None
 
     def _activate(self, acid_machine) -> str | None:
@@ -478,6 +490,32 @@ class OptionsScreen:
                 # Simple left arrow indicator
                 arrow = self._font_item.render("◄", True, COL_SEL)
                 self.screen.blit(arrow, (cx - surf.get_width() // 2 - 22, y + 2))
+
+        elif itype == "colour_pick":
+            label_surf = self._font_item.render(item["label"], True, col)
+            self.screen.blit(label_surf, (cx - 200, y + 2))
+            colours = item["colours"]
+            idx = getattr(self.settings, item["key"])
+            idx = max(0, min(idx, len(colours) - 1))
+            entry = colours[idx]
+            name_surf = self._font_item.render(entry["name"], True, col)
+            swatch_x = cx + 60
+            self.screen.blit(name_surf, (swatch_x, y + 2))
+            # Draw a small colour swatch to the right of the name
+            swatch_rgb = entry.get("base") or entry.get("colour")
+            if swatch_rgb is not None:
+                swatch_rect = pygame.Rect(
+                    swatch_x + name_surf.get_width() + 8,
+                    y + 3,
+                    18, 16,
+                )
+                pygame.draw.rect(self.screen, swatch_rgb, swatch_rect, border_radius=2)
+                pygame.draw.rect(self.screen, col, swatch_rect, width=1, border_radius=2)
+            if selected:
+                arrow_l = self._font_item.render("◄", True, COL_SEL)
+                arrow_r = self._font_item.render("►", True, COL_SEL)
+                self.screen.blit(arrow_l, (cx - 200 - 22, y + 2))
+                self.screen.blit(arrow_r, (cx - 200 + label_surf.get_width() + 4, y + 2))
 
         elif itype == "net_text":
             label_surf = self._font_item.render(item["label"], True, col)

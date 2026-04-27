@@ -83,6 +83,9 @@ class Settings:
         # Network
         self.server_ip:   str = DEFAULT_SERVER_IP
         self.server_port: int = DEFAULT_SERVER_PORT
+        # Appearance: indices into SUIT_COLOURS / HAIR_COLOURS (0 = theme default)
+        self.suit_colour_idx: int = 0
+        self.hair_colour_idx: int = 0
 
     # ── Persistence ───────────────────────────────────────────────────────────
 
@@ -109,6 +112,8 @@ class Settings:
                         self.controller[action] = int(btn_val)
             self.server_ip   = str(data.get("server_ip",   self.server_ip))
             self.server_port = int(data.get("server_port", self.server_port))
+            self.suit_colour_idx = int(data.get("suit_colour_idx", self.suit_colour_idx))
+            self.hair_colour_idx = int(data.get("hair_colour_idx", self.hair_colour_idx))
         except Exception:
             pass  # corrupt file – use defaults
 
@@ -122,6 +127,8 @@ class Settings:
             "controller":   dict(self.controller),
             "server_ip":    self.server_ip,
             "server_port":  self.server_port,
+            "suit_colour_idx": self.suit_colour_idx,
+            "hair_colour_idx": self.hair_colour_idx,
         }
         try:
             with open(path, "w", encoding="utf-8") as fh:
