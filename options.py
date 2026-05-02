@@ -48,6 +48,8 @@ def _build_items() -> list:
         {"type": "section", "label": "AUDIO"},
         {"type": "audio",   "key": "music_volume", "label": "Music Volume"},
         {"type": "audio",   "key": "sfx_volume",   "label": "SFX Volume"},
+        {"type": "section", "label": "DISPLAY"},
+        {"type": "toggle",  "key": "fullscreen",   "label": "Fullscreen"},
         {"type": "section", "label": "APPEARANCE"},
         {"type": "colour_pick", "key": "suit_colour_idx", "label": "Suit Colour",  "colours": SUIT_COLOURS},
         {"type": "colour_pick", "key": "hair_colour_idx", "label": "Hair Colour",  "colours": HAIR_COLOURS},
@@ -327,6 +329,8 @@ class OptionsScreen:
             colours = item["colours"]
             val = getattr(self.settings, item["key"])
             setattr(self.settings, item["key"], (val - 1) % len(colours))
+        elif item["type"] == "toggle":
+            self._do_toggle(item["key"])
         return None
 
     def _adjust_right(self, acid_machine) -> str | None:
@@ -339,6 +343,8 @@ class OptionsScreen:
             colours = item["colours"]
             val = getattr(self.settings, item["key"])
             setattr(self.settings, item["key"], (val + 1) % len(colours))
+        elif item["type"] == "toggle":
+            self._do_toggle(item["key"])
         return None
 
     def _activate(self, acid_machine) -> str | None:
@@ -351,6 +357,8 @@ class OptionsScreen:
         elif item["type"] == "ctrl_bind":
             self._waiting = "button"
             self._wait_action = item["action"]
+        elif item["type"] == "toggle":
+            self._do_toggle(item["key"])
         elif item["type"] == "net_text":
             self._waiting = "net_text"
             self._wait_action = item["key"]
@@ -375,6 +383,14 @@ class OptionsScreen:
                     self.settings.server_ip,
                     self.settings.server_port,
                 )
+
+    def _do_toggle(self, key: str) -> None:
+        """Flip a boolean setting and apply it immediately."""
+        new_val = not getattr(self.settings, key)
+        setattr(self.settings, key, new_val)
+        if key == "fullscreen":
+            flags = pygame.FULLSCREEN if new_val else 0
+            self.screen = pygame.display.set_mode((self.width, self.height), flags)
 
     def _apply_volume(self, acid_machine) -> None:
         if acid_machine is not None:
@@ -457,6 +473,19 @@ class OptionsScreen:
             # Percentage text
             pct_surf = self._font_item.render(f"{val}%", True, col)
             self.screen.blit(pct_surf, (track_x + SLIDER_WIDTH + 8, y + 2))
+
+        elif itype == "toggle":
+            label_surf = self._font_item.render(item["label"], True, col)
+            self.screen.blit(label_surf, (cx - 200, y + 2))
+            val = getattr(self.settings, item["key"])
+            on_col = (80, 220, 80) if val else COL_DIM
+            val_surf = self._font_item.render("ON" if val else "OFF", True, on_col)
+            self.screen.blit(val_surf, (cx + 60, y + 2))
+            if selected:
+                arrow_l = self._font_item.render("◄", True, COL_SEL)
+                arrow_r = self._font_item.render("►", True, COL_SEL)
+                self.screen.blit(arrow_l, (cx + 60 - 22, y + 2))
+                self.screen.blit(arrow_r, (cx + 60 + val_surf.get_width() + 4, y + 2))
 
         elif itype == "kb_bind":
             label_surf = self._font_item.render(item["label"], True, col)

@@ -86,6 +86,8 @@ class Settings:
         # Appearance: indices into SUIT_COLOURS / HAIR_COLOURS (0 = theme default)
         self.suit_colour_idx: int = 0
         self.hair_colour_idx: int = 0
+        # Display
+        self.fullscreen: bool = False
 
     # ── Persistence ───────────────────────────────────────────────────────────
 
@@ -114,6 +116,7 @@ class Settings:
             self.server_port = int(data.get("server_port", self.server_port))
             self.suit_colour_idx = int(data.get("suit_colour_idx", self.suit_colour_idx))
             self.hair_colour_idx = int(data.get("hair_colour_idx", self.hair_colour_idx))
+            self.fullscreen = bool(data.get("fullscreen", self.fullscreen))
         except Exception:
             pass  # corrupt file – use defaults
 
@@ -129,6 +132,7 @@ class Settings:
             "server_port":  self.server_port,
             "suit_colour_idx": self.suit_colour_idx,
             "hair_colour_idx": self.hair_colour_idx,
+            "fullscreen":      self.fullscreen,
         }
         try:
             with open(path, "w", encoding="utf-8") as fh:
