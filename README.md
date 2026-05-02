@@ -18,6 +18,7 @@ Inspired by classic co-op brawlers like TMNT and Double Dragon, it uses fully pr
    - [Rampage Level (Kaiju Mode)](#rampage-level-kaiju-mode)
    - [Gauntlet Mode](#gauntlet-mode)
    - [Pang Mode](#pang-mode)
+   - [Rolling Ball Assault Course](#rolling-ball-assault-course)
 5. [Controls](#controls)
    - [Beat-Em-Up Controls](#beat-em-up-controls)
    - [Special Moves](#special-moves)
@@ -25,6 +26,7 @@ Inspired by classic co-op brawlers like TMNT and Double Dragon, it uses fully pr
    - [Rampage Level Controls](#rampage-level-controls)
    - [Gauntlet Mode Controls](#gauntlet-mode-controls)
    - [Pang Mode Controls](#pang-mode-controls)
+   - [Rolling Ball Controls](#rolling-ball-controls)
 6. [Weapons](#weapons)
 7. [Grab & Throw System](#grab--throw-system)
 8. [Enemy Types](#enemy-types)
@@ -78,6 +80,7 @@ Navigate with **↑ / ↓ arrow keys** (or a controller D-pad / left stick) and 
 | **Rampage Level** | Kaiju-mode city destruction level |
 | **Gauntlet Mode** | Co-op top-down dungeon crawl (up to 4 players) |
 | **Pang Mode** | Pang / Buster-Bros style co-op ball-busting mode |
+| **Rolling Ball** | Timed assault-course race for up to 4 players |
 | **Options** | Audio, appearance, key bindings, and network settings |
 
 ---
@@ -141,6 +144,20 @@ A Pang / Buster Bros-inspired co-operative arcade mode.
 - Objects split into smaller, faster versions when hit
 - Tiny objects (the smallest tier) are destroyed on hit
 - Players have **3 lives** each; the round ends when all objects are cleared or all lives are lost
+
+### Rolling Ball Assault Course
+
+A top-down ball racing mode for up to **4 players** simultaneously.
+
+- Each player controls a rolling ball through a **4800px assault course**
+- **Accelerate** in any direction to steer your ball down the winding track
+- Dodge **spinning bars**, **moving walls**, and **hazard pits** scattered across the course
+- **Bumpers** deflect balls — use them strategically or get knocked off course
+- **Bounce pads** launch your ball forward for speed boosts
+- Pass through **checkpoints** to track progress
+- The race ends when the first ball reaches the **finish line**, or after **3 minutes** — furthest ball wins
+- Balls can **collide and bounce off** each other, adding tactical chaos to close races
+- Fall off the track and you'll **respawn** at the last checkpoint with a brief grace period
 
 ---
 
@@ -274,6 +291,29 @@ Their hitboxes are highlighted in **purple** during the active strike window.
 |-------|--------|
 | Left stick / D-pad | Move |
 | A button | Jump / Shoot |
+
+---
+
+### Rolling Ball Controls
+
+#### Player 1 (Keyboard)
+
+| Key | Action |
+|-----|--------|
+| ← → ↑ ↓ Arrow keys | Roll ball in any direction |
+| Esc | Exit to menu |
+
+#### Player 2 (Keyboard)
+
+| Key | Action |
+|-----|--------|
+| A / D / W / S | Roll ball in any direction |
+
+#### Player 3–4 (Gamepads)
+
+| Input | Action |
+|-------|--------|
+| Left stick / D-pad | Roll ball in any direction |
 
 ---
 
@@ -463,3 +503,7 @@ For a step-by-step guide to setting up Quad Fighter on macOS (including installi
 ### Moto Level
 
 ![Moto level](docs/screenshots/moto-scene.png)
+
+### Rolling Ball Assault Course
+
+![Rolling ball assault course](docs/screenshots/rolling-ball-scene.png)
