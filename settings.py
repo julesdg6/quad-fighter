@@ -86,6 +86,8 @@ class Settings:
         # Appearance: indices into SUIT_COLOURS / HAIR_COLOURS (0 = theme default)
         self.suit_colour_idx: int = 0
         self.hair_colour_idx: int = 0
+        # Display
+        self.fullscreen: bool = False
         # Number of local players (1–4); additional players must join explicitly
         self.num_players: int = 1
 
@@ -116,6 +118,7 @@ class Settings:
             self.server_port = int(data.get("server_port", self.server_port))
             self.suit_colour_idx = int(data.get("suit_colour_idx", self.suit_colour_idx))
             self.hair_colour_idx = int(data.get("hair_colour_idx", self.hair_colour_idx))
+            self.fullscreen = bool(data.get("fullscreen", self.fullscreen))
             self.num_players = max(1, min(4, int(data.get("num_players", self.num_players))))
         except Exception:
             pass  # corrupt file – use defaults
@@ -132,6 +135,7 @@ class Settings:
             "server_port":  self.server_port,
             "suit_colour_idx": self.suit_colour_idx,
             "hair_colour_idx": self.hair_colour_idx,
+            "fullscreen":      self.fullscreen,
             "num_players":  self.num_players,
         }
         try:

@@ -145,7 +145,8 @@ WEAPON_STATS = {
 }
 
 # Setup
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+display_flags = pygame.FULLSCREEN if settings.fullscreen else 0
+screen = pygame.display.set_mode((WIDTH, HEIGHT), display_flags)
 pygame.display.set_caption('Quad Fighter Prototype')
 clock = pygame.time.Clock()
 font = pygame.font.SysFont(None, 24)
@@ -333,6 +334,11 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+            settings.fullscreen = not settings.fullscreen
+            display_flags = pygame.FULLSCREEN if settings.fullscreen else 0
+            screen = pygame.display.set_mode((WIDTH, HEIGHT), display_flags)
+            settings.save()
         elif event.type == pygame.JOYDEVICEADDED:
             joystick = _init_joystick()
             joystick2 = _init_joystick2()
