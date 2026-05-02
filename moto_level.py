@@ -22,6 +22,8 @@ import random
 
 import pygame
 
+from base_level import BaseLevel
+
 
 # ── Pseudo-3D projection constants ────────────────────────────────────────────
 _HORIZON_Y  = 190      # screen-y of the vanishing horizon
@@ -1050,7 +1052,7 @@ def _draw_obstacle(screen, sx, sy, scale, kind):
 
 # ── Main level class ──────────────────────────────────────────────────────────
 
-class MotoLevel:
+class MotoLevel(BaseLevel):
     """Self-contained motorcycle combat level.
 
     Call ``run()`` to play.  Returns ``"complete"``, ``"dead"``, or
@@ -1058,18 +1060,11 @@ class MotoLevel:
     """
 
     def __init__(self, screen, width, height, fps, settings, font, acid, sfx,
-                 joystick=None):
-        self.screen   = screen
-        self.width    = width
-        self.height   = height
-        self.fps      = fps
-        self.settings = settings
-        self.font     = font
-        self.acid     = acid
-        self.sfx      = sfx
-        self.joystick = joystick
-        self.cx       = width // 2
-        self._clock   = pygame.time.Clock()
+                 joystick=None, joystick2=None):
+        super().__init__(screen, width, height, fps, settings, font, acid, sfx,
+                         joystick=joystick, joystick2=joystick2)
+        self.cx     = width // 2
+        self._clock = pygame.time.Clock()
 
     # ── Public entry point ────────────────────────────────────────────────────
 
