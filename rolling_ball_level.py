@@ -135,6 +135,7 @@ _GAP_DEFS: list[tuple] = [
 _BALL_COLL_R  = 16.0   # collision radius (world units)
 _FWD_ACCEL    = 190.0  # forward acceleration (world-units / s²)
 _FWD_DECEL    = 270.0  # braking deceleration
+_FWD_FRICTION = 0.985  # per-frame forward damping above AUTO_SPEED (at 60 fps)
 _LAT_ACCEL    = 320.0  # lateral steering acceleration
 _LAT_FRIC_FPS = 0.82   # per-frame lateral damping at 60 fps
 _MAX_FWD      = 520.0  # max forward speed
@@ -143,6 +144,12 @@ _WALL_DAMP    = 0.42   # lateral speed kept after wall bounce
 _BUMP_DAMP    = 0.60   # speed kept after bumper hit
 _BALL_BOUNCE  = 0.65   # speed kept after ball–ball collision
 _AUTO_SPEED   = 120.0  # initial / idle forward speed
+
+_TRACK_RENDER_SLICES = 28    # number of Z-slices for track floor rendering
+_TRACK_SLICE_POWER   = 0.65  # power-curve exponent: <1 puts more slices near camera
+_DASH_Z_GAP          = 220.0 # world-Z spacing between centre-line dashes
+_SPEED_LINE_SPREAD   = 0.6   # angular spread of the speed-line fan (radians)
+_SPEED_LINE_OFFSET   = 0.3   # angular offset from directly behind (radians)
 
 # ── Race ──────────────────────────────────────────────────────────────────────
 
@@ -212,10 +219,11 @@ def _track_at_z(z: float) -> tuple[float, float, float]:
 
 def _proj(wx: float, wz: float, wh: float,
           cam_x: float, cam_z: float, cam_h: float,
-          focal: float, horizon_y: int, vcx: int) -> tuple | None:
+          focal: float, horizon_y: int, vcx: int) -> tuple[int, int, float] | None:
     """Project world (wx, wz, wh) → viewport (sx, sy, scale).
 
     Returns None if the point is behind the camera.
+    focal scales as ``_FOCAL_BASE * viewport_height / 600``.
     """
     dz = wz - cam_z
     if dz <= 0.5:
@@ -698,13 +706,15 @@ class RollingBallLevel(BaseLevel):
                 ball.vz += az * _FWD_DECEL * dt
 
             # Friction: damp only excess speed above AUTO_SPEED to keep base
-            # rolling feel; below AUTO_SPEED gradually recover (unless braking)
+            # rolling feel; below AUTO_SPEED gradually recover (unless braking).
+            # The formula `(1 - (1 - k) * dt * 60)` is a frame-rate-compensated
+            # per-frame multiplier equivalent to k^(dt*60).
             if az < 0:
                 ball.vz  = max(0.0, ball.vz)
             else:
                 if ball.vz > _AUTO_SPEED:
                     excess   = ball.vz - _AUTO_SPEED
-                    excess  *= (1.0 - (1.0 - 0.985) * dt * 60.0)
+                    excess  *= (1.0 - (1.0 - _FWD_FRICTION) * dt * 60.0)
                     ball.vz  = _AUTO_SPEED + excess
                 else:
                     ball.vz += (_AUTO_SPEED - ball.vz) * min(1.0, dt * 3.0)
@@ -786,8 +796,10 @@ class RollingBallLevel(BaseLevel):
                 if dist < min_d and dist > 1e-9:
                     nx, nz   = dx / dist, dz / dist
                     overlap  = (min_d - dist) / 2.0
-                    a.x -= nx * overlap;  a.z -= nz * overlap
-                    b.x += nx * overlap;  b.z += nz * overlap
+                    a.x -= nx * overlap
+                    a.z -= nz * overlap
+                    b.x += nx * overlap
+                    b.z += nz * overlap
                     dax = a.vx * nx + a.vz * nz
                     dbx = b.vx * nx + b.vz * nz
                     a.vx += (dbx - dax) * nx * _BALL_BOUNCE
@@ -911,14 +923,13 @@ class RollingBallLevel(BaseLevel):
     def _draw_track_3d(self, surf, proj, cam_z, focal, horizon_y, vcx,
                        vw, vh) -> None:
         """Draw the track corridor as Z-slices (far→near, painter's algorithm)."""
-        NUM_SLICES = 28
         z_start = cam_z + _Z_NEAR
         z_end   = cam_z + _Z_FAR
-        # Power distribution puts more slices near the camera
-        zs = [z_start + (z_end - z_start) * (i / NUM_SLICES) ** 0.65
-              for i in range(NUM_SLICES + 1)]
+        # Power curve places more slices near the camera for richer visual detail
+        zs = [z_start + (z_end - z_start) * (i / _TRACK_RENDER_SLICES) ** _TRACK_SLICE_POWER
+              for i in range(_TRACK_RENDER_SLICES + 1)]
 
-        for i in range(NUM_SLICES - 1, -1, -1):
+        for i in range(_TRACK_RENDER_SLICES - 1, -1, -1):
             z0 = zs[i]
             z1 = zs[i + 1]
 
@@ -980,10 +991,9 @@ class RollingBallLevel(BaseLevel):
             pygame.draw.lines(surf, _EDGE_DARK, False, right_pts, 1)
 
         # ── Centre dashes ─────────────────────────────────────────────────────
-        DASH_Z_GAP = 220.0
-        num_dashes = int(_Z_FAR / DASH_Z_GAP) + 4
+        num_dashes = int(_Z_FAR / _DASH_Z_GAP) + 4
         for i in range(num_dashes):
-            z = cam_z + _Z_NEAR + (i * DASH_Z_GAP - (cam_z % DASH_Z_GAP))
+            z = cam_z + _Z_NEAR + (i * _DASH_Z_GAP - (cam_z % _DASH_Z_GAP))
             if not (0.0 <= z <= _FINISH_Z):
                 continue
             _, _, h = _track_at_z(z)
@@ -1040,7 +1050,8 @@ class RollingBallLevel(BaseLevel):
                 p1t = proj(wx1, z, h + gate_h)
                 if None in (p0b, p1b, p0t, p1t):
                     continue
-                tile_col = _FINISH_COL if (ti + (frame // 20) % 2) % 2 == 0 \
+                anim_offset = (frame // 20) % 2
+                tile_col = _FINISH_COL if (ti + anim_offset) % 2 == 0 \
                            else _FINISH_ALT
                 pygame.draw.polygon(surf, tile_col, [
                     (p0b[0], p0b[1]), (p1b[0], p1b[1]),
@@ -1300,7 +1311,7 @@ class RollingBallLevel(BaseLevel):
         n_lines = 6
         length  = int(r * 1.2 * speed_frac)
         for i in range(n_lines):
-            angle = math.pi + (i / n_lines) * math.pi * 0.6 - math.pi * 0.3
+            angle = math.pi + (i / n_lines) * math.pi * _SPEED_LINE_SPREAD - math.pi * _SPEED_LINE_OFFSET
             ex = sx + int(math.cos(angle) * (r + length))
             ey = sy + int(math.sin(angle) * (r + length))
             sx2 = sx + int(math.cos(angle) * r)
