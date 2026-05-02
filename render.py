@@ -209,7 +209,23 @@ def _draw_weapon_at_hand(screen, weapon_name, front_hand, facing, width, height,
 # Each function is called at the end of draw_fighter() when palette["archetype"]
 # matches the corresponding class.  All coordinates come from draw_fighter()'s
 # local variables and are passed explicitly so the helpers stay side-effect-free.
+#
+# Proportion constants use head_radius (hr) as the unit so the overlays scale
+# consistently with the overall character size.
 # ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Warrior proportions ────────────────────────────────────────────────────────
+_HELM_TOP_RATIO    = 0.92   # helmet top above head_center, in units of head_radius
+_HELM_BASE_RATIO   = 0.08   # helmet base below head_center
+_HORN_REACH_RATIO  = 1.28   # how far the horn tip extends sideways (x)
+_HORN_HEIGHT_RATIO = 0.96   # how far the horn tip extends upward (y)
+_KILT_FRINGE_COUNT = 5      # vertical fringe lines on the warrior kilt
+
+# ── Wizard proportions ────────────────────────────────────────────────────────
+_HAT_BRIM_RATIO    = 1.10   # hat brim half-width in units of head_radius
+_HAT_TIP_RATIO     = 3.20   # hat tip height above head_center
+_HAT_LEAN_RATIO    = 0.22   # how much the hat tip leans backward (away from facing)
+_ROBE_FOLD_SEGS    = 3      # visible fold lines on the robe (divides robe into N+1 panels)
 
 def _draw_archetype_warrior(
     screen, palette, head_center, head_radius,
@@ -221,8 +237,8 @@ def _draw_archetype_warrior(
     kilt_color = palette.get("kilt_color", (106, 60, 26))
     cx, cy = head_center
     hr     = head_radius
-    top    = cy - int(hr * 0.92)
-    base   = cy + int(hr * 0.08)
+    top    = cy - int(hr * _HELM_TOP_RATIO)
+    base   = cy + int(hr * _HELM_BASE_RATIO)
 
     # Helmet bowl
     helm_pts = [
@@ -244,23 +260,23 @@ def _draw_archetype_warrior(
                      (cx - int(hr * 0.30), top - int(hr * 0.08)),
                      (cx + int(hr * 0.30), top - int(hr * 0.08)), 1)
 
-    # Left horn
+    # Left horn (sweeps up and outward)
     lh_pts = [
-        (cx - int(hr * 0.76), top + int(hr * 0.08)),
-        (cx - int(hr * 0.88), base),
-        (cx - int(hr * 1.28), top - int(hr * 0.52)),
-        (cx - int(hr * 1.06), top - int(hr * 0.96)),
-        (cx - int(hr * 0.80), top - int(hr * 0.08)),
+        (cx - int(hr * 0.76),             top + int(hr * 0.08)),
+        (cx - int(hr * 0.88),             base),
+        (cx - int(hr * _HORN_REACH_RATIO), top - int(hr * 0.52)),
+        (cx - int(hr * 1.06),             top - int(hr * _HORN_HEIGHT_RATIO)),
+        (cx - int(hr * 0.80),             top - int(hr * 0.08)),
     ]
     pygame.draw.polygon(screen, helm_color, lh_pts)
 
-    # Right horn
+    # Right horn (mirror)
     rh_pts = [
-        (cx + int(hr * 0.76), top + int(hr * 0.08)),
-        (cx + int(hr * 0.88), base),
-        (cx + int(hr * 1.28), top - int(hr * 0.52)),
-        (cx + int(hr * 1.06), top - int(hr * 0.96)),
-        (cx + int(hr * 0.80), top - int(hr * 0.08)),
+        (cx + int(hr * 0.76),             top + int(hr * 0.08)),
+        (cx + int(hr * 0.88),             base),
+        (cx + int(hr * _HORN_REACH_RATIO), top - int(hr * 0.52)),
+        (cx + int(hr * 1.06),             top - int(hr * _HORN_HEIGHT_RATIO)),
+        (cx + int(hr * 0.80),             top - int(hr * 0.08)),
     ]
     pygame.draw.polygon(screen, helm_color, rh_pts)
 
@@ -278,8 +294,8 @@ def _draw_archetype_warrior(
     ]
     pygame.draw.polygon(screen, kilt_color, kilt_pts)
     fringe = tuple(max(0, c - 26) for c in kilt_color)
-    for i in range(5):
-        t  = (i + 0.5) / 5.0
+    for i in range(_KILT_FRINGE_COUNT):
+        t  = (i + 0.5) / _KILT_FRINGE_COUNT
         tx = int(kx - kht + 2 * kht * t)
         bx = int(kx - khb + 2 * khb * t)
         pygame.draw.line(screen, fringe, (tx, kilt_top), (bx, kilt_bot), 1)
