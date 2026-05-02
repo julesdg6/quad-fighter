@@ -203,7 +203,7 @@ class _Ball:
         self.roll_angle  = 0.0   # visual rotation (radians, grows with movement)
         self.alive       = True
         self.finished    = False
-        self.finish_time : float | None = None
+        self.finish_time: float | None = None
         self.checkpoint  = -1    # index of last checkpoint reached (-1 = none)
         self.spawn_x     = x
         self.spawn_y     = y
@@ -515,31 +515,31 @@ class RollingBallLevel:
             int(self.height * 0.55),
         ]
         self._balls = [
-            _Ball(i, 80.0, float(start_ys[i]) * scale)
+            _Ball(i, 80.0, float(start_ys[i]))
             for i in range(num_players)
         ]
         for b in self._balls:
             b.spawn_y = b.y
 
-        # Build obstacles (scale Y coords to screen height)
-        def sy(y: int) -> float:
+        # Build obstacles (scale world-Y coords to screen height)
+        def scale_y(y: int) -> float:
             return float(y) * scale
 
         self._bumpers = [
-            _Bumper(cx, int(sy(cy)), r)
+            _Bumper(cx, int(scale_y(cy)), r)
             for cx, cy, r in _BUMPER_DEFS
         ]
         self._spinbars = [
-            _SpinBar(px, int(sy(py)), length, spd, phase)
+            _SpinBar(px, int(scale_y(py)), length, spd, phase)
             for px, py, length, spd, phase in _SPINBAR_DEFS
         ]
         self._mwalls = [
-            _MovingWall(cx, int(sy(cy)), w, int(h * scale), axis,
+            _MovingWall(cx, int(scale_y(cy)), w, int(h * scale), axis,
                         int(amp * scale), spd, phase)
             for cx, cy, w, h, axis, amp, spd, phase in _MWALL_DEFS
         ]
         self._bpads = [
-            _BouncePad(cx, int(sy(cy)), r, angle, mag)
+            _BouncePad(cx, int(scale_y(cy)), r, angle, mag)
             for cx, cy, r, angle, mag in _BOUNCEPAD_DEFS
         ]
 
