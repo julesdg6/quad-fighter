@@ -204,6 +204,249 @@ def _draw_weapon_at_hand(screen, weapon_name, front_hand, facing, width, height,
         pygame.draw.polygon(screen, (50, 32, 14), pts2, 1)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Gauntlet-style archetype overlay helpers
+# Each function is called at the end of draw_fighter() when palette["archetype"]
+# matches the corresponding class.  All coordinates come from draw_fighter()'s
+# local variables and are passed explicitly so the helpers stay side-effect-free.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _draw_archetype_warrior(
+    screen, palette, head_center, head_radius,
+    waist_left, waist_right, left_hip, right_hip,
+    bottom_y, hip_y, upper_leg_width,
+):
+    """Gauntlet Warrior: horned bronze helmet + leather kilt."""
+    helm_color = palette.get("helm_color", (148, 116, 62))
+    kilt_color = palette.get("kilt_color", (106, 60, 26))
+    cx, cy = head_center
+    hr     = head_radius
+    top    = cy - int(hr * 0.92)
+    base   = cy + int(hr * 0.08)
+
+    # Helmet bowl
+    helm_pts = [
+        (cx - int(hr * 0.90), base),
+        (cx - int(hr * 0.86), top + int(hr * 0.12)),
+        (cx - int(hr * 0.38), top - int(hr * 0.20)),
+        (cx + int(hr * 0.38), top - int(hr * 0.20)),
+        (cx + int(hr * 0.86), top + int(hr * 0.12)),
+        (cx + int(hr * 0.90), base),
+    ]
+    pygame.draw.polygon(screen, helm_color, helm_pts)
+    brow_col = tuple(max(0, c - 38) for c in helm_color)
+    pygame.draw.line(screen, brow_col,
+                     (cx - int(hr * 0.88), base),
+                     (cx + int(hr * 0.88), base),
+                     max(2, int(hr * 0.22)))
+    hi_col = tuple(min(255, c + 36) for c in helm_color)
+    pygame.draw.line(screen, hi_col,
+                     (cx - int(hr * 0.30), top - int(hr * 0.08)),
+                     (cx + int(hr * 0.30), top - int(hr * 0.08)), 1)
+
+    # Left horn
+    lh_pts = [
+        (cx - int(hr * 0.76), top + int(hr * 0.08)),
+        (cx - int(hr * 0.88), base),
+        (cx - int(hr * 1.28), top - int(hr * 0.52)),
+        (cx - int(hr * 1.06), top - int(hr * 0.96)),
+        (cx - int(hr * 0.80), top - int(hr * 0.08)),
+    ]
+    pygame.draw.polygon(screen, helm_color, lh_pts)
+
+    # Right horn
+    rh_pts = [
+        (cx + int(hr * 0.76), top + int(hr * 0.08)),
+        (cx + int(hr * 0.88), base),
+        (cx + int(hr * 1.28), top - int(hr * 0.52)),
+        (cx + int(hr * 1.06), top - int(hr * 0.96)),
+        (cx + int(hr * 0.80), top - int(hr * 0.08)),
+    ]
+    pygame.draw.polygon(screen, helm_color, rh_pts)
+
+    # Kilt / loincloth (covers upper leg area)
+    kilt_top = int((waist_left[1] + waist_right[1]) * 0.5)
+    kilt_bot = int(hip_y + (bottom_y - hip_y) * 0.42)
+    kx       = int((left_hip[0] + right_hip[0]) * 0.5)
+    kht      = int(abs(waist_left[0] - waist_right[0]) * 0.6 + upper_leg_width)
+    khb      = int(kht * 1.72)
+    kilt_pts = [
+        (kx - kht, kilt_top),
+        (kx + kht, kilt_top),
+        (kx + khb, kilt_bot),
+        (kx - khb, kilt_bot),
+    ]
+    pygame.draw.polygon(screen, kilt_color, kilt_pts)
+    fringe = tuple(max(0, c - 26) for c in kilt_color)
+    for i in range(5):
+        t  = (i + 0.5) / 5.0
+        tx = int(kx - kht + 2 * kht * t)
+        bx = int(kx - khb + 2 * khb * t)
+        pygame.draw.line(screen, fringe, (tx, kilt_top), (bx, kilt_bot), 1)
+
+
+def _draw_archetype_valkyrie(
+    screen, palette, head_center, head_radius, facing,
+    rear_shoulder, rear_hip,
+):
+    """Gauntlet Valkyrie: winged helmet + off-hand round shield."""
+    armor_color = palette.get("armor_color", (130, 145, 175))
+    wing_color  = palette.get("wing_color",  (210, 215, 230))
+    cx, cy = head_center
+    hr     = head_radius
+    top    = cy - int(hr * 0.92)
+    base   = cy + int(hr * 0.08)
+
+    # Helmet bowl (angular Valkyrie silhouette)
+    helm_pts = [
+        (cx - int(hr * 0.86), base),
+        (cx - int(hr * 0.82), top + int(hr * 0.08)),
+        (cx - int(hr * 0.34), top - int(hr * 0.22)),
+        (cx + int(hr * 0.34), top - int(hr * 0.22)),
+        (cx + int(hr * 0.82), top + int(hr * 0.08)),
+        (cx + int(hr * 0.86), base),
+    ]
+    pygame.draw.polygon(screen, armor_color, helm_pts)
+    brow_col = tuple(max(0, c - 36) for c in armor_color)
+    pygame.draw.line(screen, brow_col,
+                     (cx - int(hr * 0.84), base),
+                     (cx + int(hr * 0.84), base),
+                     max(2, int(hr * 0.20)))
+
+    # Nose guard: narrow vertical strip
+    nose_g_w = max(2, int(hr * 0.16))
+    pygame.draw.rect(screen, brow_col,
+                     (cx - nose_g_w // 2, base, nose_g_w, int(hr * 0.50)))
+
+    # Wing on the forward-facing side of the helmet
+    w_cx = cx + facing * int(hr * 0.72)
+    w_cy = (top + base) // 2
+    wing_pts = [
+        (w_cx,                             w_cy),
+        (w_cx + facing * int(hr * 0.36),   w_cy - int(hr * 0.12)),
+        (w_cx + facing * int(hr * 1.10),   w_cy - int(hr * 0.68)),
+        (w_cx + facing * int(hr * 1.16),   w_cy - int(hr * 0.40)),
+        (w_cx + facing * int(hr * 0.52),   w_cy + int(hr * 0.12)),
+    ]
+    pygame.draw.polygon(screen, wing_color, wing_pts)
+
+    # Round shield on the rear (off-hand) arm
+    shield_r  = max(7, int(hr * 0.84))
+    shield_cx = rear_shoulder[0] - facing * int(hr * 0.22)
+    shield_cy = rear_shoulder[1] + int(hr * 0.68)
+    rim_col   = tuple(min(255, c + 28) for c in armor_color)
+    pygame.draw.circle(screen, armor_color, (shield_cx, shield_cy), shield_r)
+    pygame.draw.circle(screen, rim_col,    (shield_cx, shield_cy), shield_r, 2)
+    pygame.draw.circle(screen, rim_col,    (shield_cx, shield_cy), max(2, shield_r // 3))
+
+
+def _draw_archetype_wizard(
+    screen, palette, head_center, head_radius, facing,
+    left_hip, right_hip, hip_y, bottom_y,
+):
+    """Gauntlet Wizard: tall pointed hat + flowing robe (covers legs) + long beard."""
+    hat_color   = palette.get("hat_color",   (50, 32, 82))
+    robe_color  = palette.get("robe_color",  (168, 164, 180))
+    beard_color = palette.get("beard_color", (218, 214, 208))
+    cx, cy = head_center
+    hr     = head_radius
+
+    # Tall conical hat
+    hat_brim_w = int(hr * 1.10)
+    hat_base_y = cy - int(hr * 0.78)
+    hat_tip_x  = cx - facing * int(hr * 0.22)   # slight backward lean
+    hat_tip_y  = cy - int(hr * 3.20)
+    hat_cone   = [
+        (cx - hat_brim_w, hat_base_y),
+        (cx + hat_brim_w, hat_base_y),
+        (hat_tip_x,       hat_tip_y),
+    ]
+    pygame.draw.polygon(screen, hat_color, hat_cone)
+    brim_col = tuple(max(0, c - 24) for c in hat_color)
+    brim_pts = [
+        (cx - hat_brim_w - int(hr * 0.18), hat_base_y - int(hr * 0.08)),
+        (cx + hat_brim_w + int(hr * 0.18), hat_base_y - int(hr * 0.08)),
+        (cx + hat_brim_w,                  hat_base_y + int(hr * 0.18)),
+        (cx - hat_brim_w,                  hat_base_y + int(hr * 0.18)),
+    ]
+    pygame.draw.polygon(screen, brim_col, brim_pts)
+
+    # Flowing robe skirt: trapezoid from hip level to just below feet
+    robe_cx    = int((left_hip[0] + right_hip[0]) * 0.5)
+    robe_ht    = int(abs(left_hip[0] - right_hip[0]) * 0.5 + 8)
+    robe_hb    = int(robe_ht * 2.18)
+    robe_bot_y = bottom_y + 2
+    robe_pts   = [
+        (robe_cx - robe_ht, hip_y),
+        (robe_cx + robe_ht, hip_y),
+        (robe_cx + robe_hb, robe_bot_y),
+        (robe_cx - robe_hb, robe_bot_y),
+    ]
+    pygame.draw.polygon(screen, robe_color, robe_pts)
+    fold_dark = tuple(max(0, c - 26) for c in robe_color)
+    for i in range(3):
+        t  = (i + 1) / 4.0
+        px = int(robe_cx - robe_ht + 2 * robe_ht * t)
+        bx = int(robe_cx - robe_hb + 2 * robe_hb * t)
+        pygame.draw.line(screen, fold_dark, (px, hip_y), (bx, robe_bot_y), 1)
+
+    # Long flowing beard
+    chin_y   = cy + int(hr * 1.06)
+    chin_fwd = cx + facing * int(hr * 0.28)
+    beard_pts = [
+        (cx - facing * int(hr * 0.46),       chin_y),
+        (chin_fwd,                            chin_y),
+        (chin_fwd + facing * int(hr * 0.40), chin_y + int(hr * 0.70)),
+        (chin_fwd + facing * int(hr * 0.26), chin_y + int(hr * 1.62)),
+        (cx,                                 chin_y + int(hr * 2.26)),
+        (cx - facing * int(hr * 0.36),       chin_y + int(hr * 1.82)),
+        (cx - facing * int(hr * 0.46),       chin_y + int(hr * 1.08)),
+    ]
+    pygame.draw.polygon(screen, beard_color, beard_pts)
+    beard_mid = tuple(max(0, c - 18) for c in beard_color)
+    pygame.draw.line(screen, beard_mid,
+                     (cx, chin_y + int(hr * 0.20)),
+                     (cx, chin_y + int(hr * 1.96)), 1)
+
+
+def _draw_archetype_elf(
+    screen, palette, head_center, head_radius, facing,
+    rear_shoulder, rear_hip,
+):
+    """Gauntlet Elf: pointed hood + quiver on back."""
+    hood_color   = palette.get("hood_color",   (38, 98, 40))
+    quiver_color = palette.get("quiver_color", (96, 62, 28))
+    cx, cy = head_center
+    hr     = head_radius
+
+    # Pointed hood / cap: triangle angled to the rear
+    h_base_y = cy + int(hr * 0.22)
+    h_fwd_x  = cx + facing * int(hr * 0.56)
+    h_rear_x = cx - facing * int(hr * 0.78)
+    h_tip_x  = cx - facing * int(hr * 1.08)
+    h_tip_y  = cy - int(hr * 1.88)
+    hood_pts = [(h_fwd_x, h_base_y), (h_rear_x, h_base_y), (h_tip_x, h_tip_y)]
+    pygame.draw.polygon(screen, hood_color, hood_pts)
+    hood_hi = tuple(min(255, c + 32) for c in hood_color)
+    mid_bx  = (h_fwd_x + h_rear_x) // 2
+    pygame.draw.line(screen, hood_hi, (mid_bx, h_base_y), (h_tip_x, h_tip_y), 1)
+
+    # Quiver on the back (rear shoulder side)
+    q_cx  = rear_shoulder[0] - facing * int(hr * 0.50)
+    q_top = rear_shoulder[1] - int(hr * 0.22)
+    q_bot = rear_hip[1] + int(hr * 0.30)
+    q_w   = max(4, int(hr * 0.50))
+    pygame.draw.rect(screen, quiver_color,
+                     (q_cx - q_w // 2, q_top, q_w, q_bot - q_top),
+                     border_radius=3)
+    tuft = tuple(min(255, c + 50) for c in quiver_color)
+    for dx_off in (-int(hr * 0.18), 0, int(hr * 0.18)):
+        pygame.draw.line(screen, tuft,
+                         (q_cx + dx_off, q_top),
+                         (q_cx + dx_off - facing * int(hr * 0.22),
+                          q_top - int(hr * 0.38)), 1)
+
+
 def draw_fighter(
     screen,
     body_rect,
@@ -1013,3 +1256,27 @@ def draw_fighter(
     ]
     pygame.draw.polygon(screen, foot_color, rear_foot_poly)
     pygame.draw.polygon(screen, foot_color, front_foot_poly)
+
+    # ── Gauntlet-style archetype overlays ──────────────────────────────────────
+    _archetype = palette.get("archetype")
+    if _archetype == "warrior":
+        _draw_archetype_warrior(
+            screen, palette, head_center, head_radius,
+            waist_left, waist_right, left_hip, right_hip,
+            bottom_y, hip_y, upper_leg_width,
+        )
+    elif _archetype == "valkyrie":
+        _draw_archetype_valkyrie(
+            screen, palette, head_center, head_radius, facing,
+            rear_shoulder, rear_hip,
+        )
+    elif _archetype == "wizard":
+        _draw_archetype_wizard(
+            screen, palette, head_center, head_radius, facing,
+            left_hip, right_hip, hip_y, bottom_y,
+        )
+    elif _archetype == "elf":
+        _draw_archetype_elf(
+            screen, palette, head_center, head_radius, facing,
+            rear_shoulder, rear_hip,
+        )

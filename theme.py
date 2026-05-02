@@ -201,61 +201,67 @@ _STREET = {
     "characters": {
         "player": {
             "normal": {
-                # Double Dragon (Billy) inspired palette: warm skin, blue vest, blue pants, auburn hair, dark red-brown boots
-                "chest":           (48, 62, 140),   # dark blue sleeveless vest
-                "torso":           (42, 56, 124),
-                "pelvis":          (60, 90, 168),   # blue pants
-                "head":            (202, 152, 100), # warm skin
-                "face":            (182, 132, 84),
-                "hair":            (156, 44, 16),   # auburn/dark red hair
-                "front_arm_upper": (198, 148, 96),  # bare skin (sleeveless vest)
-                "front_arm_lower": (188, 138, 86),
-                "rear_arm_upper":  (178, 128, 80),
-                "rear_arm_lower":  (168, 118, 72),
-                "front_leg_upper": (56, 84, 158),   # blue pants
-                "front_leg_lower": (46, 70, 136),
-                "rear_leg_upper":  (40, 64, 122),
-                "rear_leg_lower":  (34, 54, 106),
-                "hands":           (198, 148, 96),  # skin-tone fists
-                "feet":            (106, 38, 24),   # dark red-brown boots
+                # Gauntlet Warrior: bare bronze skin, fiery red hair, leather kilt, metal greaves
+                "chest":           (182, 138,  98),  # bare muscular skin
+                "torso":           (170, 126,  86),  # slightly darker muscle shadow
+                "pelvis":          (178, 134,  94),  # skin (kilt overlay will cover)
+                "head":            (188, 142, 100),  # warm skin
+                "face":            (168, 124,  82),
+                "hair":            (176,  56,  18),  # fiery red/auburn
+                "front_arm_upper": (182, 136,  96),  # bare muscular arms
+                "front_arm_lower": (174, 128,  88),
+                "rear_arm_upper":  (168, 122,  84),
+                "rear_arm_lower":  (160, 116,  78),
+                "front_leg_upper": (100,  66,  34),  # leather leggings (under kilt)
+                "front_leg_lower": ( 86,  56,  28),
+                "rear_leg_upper":  ( 90,  60,  30),
+                "rear_leg_lower":  ( 78,  50,  24),
+                "hands":           (180, 134,  94),  # bare fists
+                "feet":            (120,  90,  50),  # bronze greaves
             },
             "props": {
-                "belt":           (14, 14, 16),
-                "head_scale":     0.82,
-                "shoulder_ratio": 0.35,
-                "hip_ratio":      0.12,
-                "arm_width":      0.24,
-                "leg_width":      0.27,
-                "idle_tilt":      0.01,
+                "head_scale":     0.90,
+                "shoulder_ratio": 0.38,   # very broad brawler shoulders
+                "hip_ratio":      0.14,
+                "arm_width":      0.29,   # thick, brawny arms
+                "leg_width":      0.26,
+                "idle_tilt":      0.00,
+                "archetype":      "warrior",
+                "helm_color":     (148, 114,  62),  # bronze helmet
+                "kilt_color":     (108,  60,  26),  # dark leather kilt
             },
         },
         "player2": {
             "normal": {
-                "chest":           (38, 82, 156),
-                "torso":           (44, 92, 166),
-                "pelvis":          (32, 66, 122),
-                "head":            (216, 196, 172),
-                "face":            (188, 168, 145),
-                "hair":            (62, 48, 34),
-                "front_arm_upper": (200, 156, 110),
-                "front_arm_lower": (190, 146, 100),
-                "rear_arm_upper":  (178, 138, 96),
-                "rear_arm_lower":  (168, 128, 88),
-                "front_leg_upper": (28, 48, 92),
-                "front_leg_lower": (24, 42, 80),
-                "rear_leg_upper":  (22, 38, 74),
-                "rear_leg_lower":  (18, 32, 64),
-                "hands":           (212, 162, 110),
-                "feet":            (42, 42, 48),
+                # Gauntlet Valkyrie: blue-silver armour, fair skin, golden hair
+                "chest":           (130, 142, 172),  # silver-blue breastplate
+                "torso":           (120, 132, 162),
+                "pelvis":          (116, 128, 156),
+                "head":            (220, 198, 170),  # fair skin
+                "face":            (198, 174, 146),
+                "hair":            (216, 192,  76),  # golden blonde
+                "front_arm_upper": (126, 138, 168),  # armoured vambrace
+                "front_arm_lower": (118, 130, 158),
+                "rear_arm_upper":  (116, 126, 154),
+                "rear_arm_lower":  (108, 118, 144),
+                "front_leg_upper": (112, 124, 152),  # armoured greaves
+                "front_leg_lower": (100, 112, 140),
+                "rear_leg_upper":  ( 96, 108, 134),
+                "rear_leg_lower":  ( 88, 100, 124),
+                "hands":           (210, 188, 162),
+                "feet":            (110, 122, 148),  # metal sabatons
             },
             "props": {
-                "belt":           (22, 22, 24),
-                "head_scale":     0.82,
-                "shoulder_ratio": 0.35,
-                "hip_ratio":      0.12,
-                "arm_width":      0.24,
-                "leg_width":      0.27,
+                "belt":           (88, 68, 28),   # gold belt clasp
+                "head_scale":     0.84,
+                "shoulder_ratio": 0.33,
+                "hip_ratio":      0.13,
+                "arm_width":      0.23,
+                "leg_width":      0.24,
                 "idle_tilt":      0.01,
+                "archetype":      "valkyrie",
+                "armor_color":    (126, 138, 170),  # shield / helm color
+                "wing_color":     (208, 214, 228),  # helmet wing
             },
         },
         "raider": {
@@ -314,6 +320,71 @@ _STREET = {
                 "leg_width":      0.26,
                 "idle_tilt":      -0.04,
                 "idle_shift":     0.02,
+            },
+        },
+        "wizard": {
+            "normal": {
+                # Gauntlet Wizard: pale aged skin, white hair/beard, grey robes
+                "chest":           (168, 162, 180),  # robe grey
+                "torso":           (158, 152, 170),
+                "pelvis":          (162, 156, 174),
+                "head":            (212, 188, 158),  # aged skin
+                "face":            (188, 164, 134),
+                "hair":            (218, 214, 208),  # white/silver
+                "front_arm_upper": (162, 156, 174),  # wide robe sleeves
+                "front_arm_lower": (154, 148, 166),
+                "rear_arm_upper":  (152, 146, 164),
+                "rear_arm_lower":  (144, 138, 156),
+                "front_leg_upper": (164, 158, 176),  # hidden by robe
+                "front_leg_lower": (156, 150, 168),
+                "rear_leg_upper":  (154, 148, 166),
+                "rear_leg_lower":  (148, 142, 160),
+                "hands":           (196, 172, 144),
+                "feet":            (158, 152, 170),  # hidden by robe
+            },
+            "props": {
+                "head_scale":     0.92,
+                "shoulder_ratio": 0.30,
+                "hip_ratio":      0.12,
+                "arm_width":      0.25,
+                "leg_width":      0.22,
+                "idle_tilt":      0.00,
+                "archetype":      "wizard",
+                "hat_color":      ( 48,  30,  82),
+                "robe_color":     (166, 162, 178),
+                "beard_color":    (220, 216, 210),
+            },
+        },
+        "elf": {
+            "normal": {
+                # Gauntlet Elf: tan skin, green tunic, brown boots
+                "chest":           ( 38, 100,  44),
+                "torso":           ( 32,  90,  38),
+                "pelvis":          ( 40, 106,  46),
+                "head":            (198, 160, 116),  # tan skin
+                "face":            (176, 140,  98),
+                "hair":            ( 88,  56,  26),  # brown
+                "front_arm_upper": ( 36,  94,  42),
+                "front_arm_lower": (178, 142, 102),  # bare forearm
+                "rear_arm_upper":  ( 32,  86,  38),
+                "rear_arm_lower":  (168, 132,  92),
+                "front_leg_upper": ( 34,  88,  40),  # green trousers
+                "front_leg_lower": ( 82,  54,  24),  # brown boots
+                "rear_leg_upper":  ( 30,  82,  36),
+                "rear_leg_lower":  ( 72,  48,  20),
+                "hands":           (192, 154, 114),
+                "feet":            ( 88,  58,  26),
+            },
+            "props": {
+                "head_scale":     0.80,
+                "shoulder_ratio": 0.30,
+                "hip_ratio":      0.11,
+                "arm_width":      0.20,
+                "leg_width":      0.21,
+                "idle_tilt":      0.01,
+                "archetype":      "elf",
+                "hood_color":     ( 36,  96,  38),
+                "quiver_color":   ( 92,  60,  26),
             },
         },
         "boss": {
@@ -422,60 +493,68 @@ _NEON = {
     "characters": {
         "player": {
             "normal": {
-                "chest":           (18, 18, 28),
-                "torso":           (14, 14, 22),
-                "pelvis":          (22, 20, 34),
+                # Neon Warrior: dark metal body, cyan highlights, glowing skin
+                "chest":           ( 28,  36,  58),  # dark armored chest
+                "torso":           ( 22,  28,  48),
+                "pelvis":          ( 26,  32,  52),
                 "head":            (176, 156, 132),
                 "face":            (148, 124, 102),
-                "hair":            (0, 180, 220),
-                "front_arm_upper": (16, 20, 32),
-                "front_arm_lower": (14, 18, 28),
-                "rear_arm_upper":  (12, 16, 26),
-                "rear_arm_lower":  (10, 14, 22),
-                "front_leg_upper": (18, 16, 30),
-                "front_leg_lower": (14, 12, 26),
-                "rear_leg_upper":  (14, 12, 24),
-                "rear_leg_lower":  (10, 10, 20),
+                "hair":            (  0, 200, 240),  # electric cyan hair
+                "front_arm_upper": ( 24,  32,  52),  # dark vambrace
+                "front_arm_lower": ( 20,  26,  44),
+                "rear_arm_upper":  ( 20,  28,  46),
+                "rear_arm_lower":  ( 16,  22,  38),
+                "front_leg_upper": ( 24,  28,  50),
+                "front_leg_lower": ( 18,  22,  40),
+                "rear_leg_upper":  ( 20,  24,  44),
+                "rear_leg_lower":  ( 14,  18,  34),
                 "hands":           (168, 144, 118),
-                "feet":            (24, 22, 36),
+                "feet":            (  0, 120, 160),  # cyan greaves
             },
             "props": {
                 "belt":           (0, 160, 200),
-                "head_scale":     0.82,
-                "shoulder_ratio": 0.35,
-                "hip_ratio":      0.12,
-                "arm_width":      0.24,
-                "leg_width":      0.27,
-                "idle_tilt":      0.01,
+                "head_scale":     0.90,
+                "shoulder_ratio": 0.38,
+                "hip_ratio":      0.14,
+                "arm_width":      0.29,
+                "leg_width":      0.26,
+                "idle_tilt":      0.00,
+                "archetype":      "warrior",
+                "helm_color":     (  0, 140, 200),  # cyan helm
+                "kilt_color":     ( 10,  60, 100),  # deep blue kilt
             },
         },
         "player2": {
             "normal": {
-                "chest":           (200, 0, 160),
-                "torso":           (180, 0, 140),
-                "pelvis":          (220, 0, 180),
+                # Neon Valkyrie: magenta armour, glowing pink hair
+                "chest":           (160,   0, 140),
+                "torso":           (140,   0, 120),
+                "pelvis":          (180,   0, 160),
                 "head":            (176, 156, 132),
                 "face":            (148, 124, 102),
-                "hair":            (255, 60, 180),
-                "front_arm_upper": (168, 134, 106),
-                "front_arm_lower": (156, 122, 96),
-                "rear_arm_upper":  (148, 116, 90),
-                "rear_arm_lower":  (138, 108, 82),
-                "front_leg_upper": (160, 0, 120),
-                "front_leg_lower": (130, 0, 100),
-                "rear_leg_upper":  (120, 0, 90),
-                "rear_leg_lower":  (100, 0, 74),
+                "hair":            (255,  60, 200),  # hot pink
+                "front_arm_upper": (140,   0, 120),
+                "front_arm_lower": (120,   0, 100),
+                "rear_arm_upper":  (120,   0, 100),
+                "rear_arm_lower":  (100,   0,  84),
+                "front_leg_upper": (130,   0, 110),
+                "front_leg_lower": (110,   0,  90),
+                "rear_leg_upper":  (100,   0,  84),
+                "rear_leg_lower":  ( 84,   0,  70),
                 "hands":           (168, 144, 118),
-                "feet":            (34, 14, 30),
+                "feet":            ( 60,   0,  90),
             },
             "props": {
                 "belt":           (0, 200, 200),
-                "head_scale":     0.82,
-                "shoulder_ratio": 0.35,
-                "hip_ratio":      0.12,
-                "arm_width":      0.24,
-                "leg_width":      0.27,
+                "head_scale":     0.84,
+                "shoulder_ratio": 0.33,
+                "hip_ratio":      0.13,
+                "arm_width":      0.23,
+                "leg_width":      0.24,
                 "idle_tilt":      0.01,
+                "archetype":      "valkyrie",
+                "armor_color":    (180,   0, 160),
+                "wing_color":     (255, 100, 220),
             },
         },
         "raider": {
@@ -534,6 +613,71 @@ _NEON = {
                 "leg_width":      0.26,
                 "idle_tilt":      -0.04,
                 "idle_shift":     0.02,
+            },
+        },
+        "wizard": {
+            "normal": {
+                # Neon Wizard: glowing purple robes, electric blue hat, white beard
+                "chest":           ( 40,  18, 100),
+                "torso":           ( 34,  14,  90),
+                "pelvis":          ( 38,  16,  96),
+                "head":            (170, 138, 110),  # aged skin
+                "face":            (128, 100,  80),
+                "hair":            (200, 200, 220),  # pale silver
+                "front_arm_upper": ( 36,  16,  92),
+                "front_arm_lower": ( 30,  12,  80),
+                "rear_arm_upper":  ( 32,  14,  86),
+                "rear_arm_lower":  ( 26,  10,  74),
+                "front_leg_upper": ( 38,  16,  96),
+                "front_leg_lower": ( 32,  12,  84),
+                "rear_leg_upper":  ( 34,  12,  88),
+                "rear_leg_lower":  ( 28,  10,  76),
+                "hands":           (168, 136, 108),
+                "feet":            ( 40,  18,  98),
+            },
+            "props": {
+                "head_scale":     0.92,
+                "shoulder_ratio": 0.30,
+                "hip_ratio":      0.12,
+                "arm_width":      0.25,
+                "leg_width":      0.22,
+                "idle_tilt":      0.00,
+                "archetype":      "wizard",
+                "hat_color":      (  0,  40, 200),
+                "robe_color":     ( 44,  20, 110),
+                "beard_color":    (200, 220, 255),
+            },
+        },
+        "elf": {
+            "normal": {
+                # Neon Elf: electric green, neon skin, cyan accent
+                "chest":           (  0, 180,  60),
+                "torso":           (  0, 160,  50),
+                "pelvis":          (  0, 190,  64),
+                "head":            (178, 148, 112),
+                "face":            (154, 124,  90),
+                "hair":            ( 80, 200,  40),  # lime green
+                "front_arm_upper": (  0, 170,  56),
+                "front_arm_lower": (156, 128,  96),
+                "rear_arm_upper":  (  0, 156,  50),
+                "rear_arm_lower":  (140, 114,  84),
+                "front_leg_upper": (  0, 160,  54),
+                "front_leg_lower": ( 10,  60,  30),
+                "rear_leg_upper":  (  0, 148,  48),
+                "rear_leg_lower":  (  8,  52,  26),
+                "hands":           (170, 140, 106),
+                "feet":            ( 12,  64,  32),
+            },
+            "props": {
+                "head_scale":     0.80,
+                "shoulder_ratio": 0.30,
+                "hip_ratio":      0.11,
+                "arm_width":      0.20,
+                "leg_width":      0.21,
+                "idle_tilt":      0.01,
+                "archetype":      "elf",
+                "hood_color":     (  0, 180,  60),
+                "quiver_color":   ( 20, 100,  40),
             },
         },
         "boss": {
@@ -642,60 +786,68 @@ _ACID = {
     "characters": {
         "player": {
             "normal": {
-                "chest":           (220, 200, 20),
-                "torso":           (240, 220, 40),
-                "pelvis":          (200, 180, 18),
+                # Acid Warrior: vivid yellow-orange skin, electric hair, acid metal
+                "chest":           (190, 152,  50),  # gold skin / muscle
+                "torso":           (176, 138,  40),
+                "pelvis":          (184, 146,  46),
                 "head":            (220, 190, 158),
                 "face":            (196, 164, 132),
-                "hair":            (180, 20, 220),
-                "front_arm_upper": (240, 220, 40),
-                "front_arm_lower": (228, 208, 32),
-                "rear_arm_upper":  (220, 200, 28),
-                "rear_arm_lower":  (208, 188, 24),
-                "front_leg_upper": (180, 160, 18),
-                "front_leg_lower": (160, 142, 14),
-                "rear_leg_upper":  (160, 140, 14),
-                "rear_leg_lower":  (140, 122, 12),
+                "hair":            (255,  40, 200),  # vivid magenta hair
+                "front_arm_upper": (186, 148,  48),
+                "front_arm_lower": (176, 138,  40),
+                "rear_arm_upper":  (172, 130,  36),
+                "rear_arm_lower":  (162, 120,  30),
+                "front_leg_upper": (140, 100,  28),
+                "front_leg_lower": (120,  84,  20),
+                "rear_leg_upper":  (128,  90,  22),
+                "rear_leg_lower":  (108,  74,  16),
                 "hands":           (210, 178, 144),
-                "feet":            (160, 80, 0),
+                "feet":            (160,  80,   0),
             },
             "props": {
                 "belt":           (180, 20, 180),
-                "head_scale":     0.82,
-                "shoulder_ratio": 0.35,
-                "hip_ratio":      0.12,
-                "arm_width":      0.24,
-                "leg_width":      0.27,
-                "idle_tilt":      0.01,
+                "head_scale":     0.90,
+                "shoulder_ratio": 0.38,
+                "hip_ratio":      0.14,
+                "arm_width":      0.29,
+                "leg_width":      0.26,
+                "idle_tilt":      0.00,
+                "archetype":      "warrior",
+                "helm_color":     (200, 140,   0),  # gold helmet
+                "kilt_color":     (140,  70,   0),  # amber kilt
             },
         },
         "player2": {
             "normal": {
-                "chest":           (0, 200, 220),
-                "torso":           (0, 220, 240),
-                "pelvis":          (0, 176, 196),
+                # Acid Valkyrie: cyan armour, vivid hair
+                "chest":           (  0, 200, 220),
+                "torso":           (  0, 180, 200),
+                "pelvis":          (  0, 176, 196),
                 "head":            (220, 190, 158),
                 "face":            (196, 164, 132),
-                "hair":            (0, 255, 180),
-                "front_arm_upper": (200, 166, 128),
-                "front_arm_lower": (188, 154, 118),
-                "rear_arm_upper":  (178, 144, 110),
-                "rear_arm_lower":  (166, 134, 100),
-                "front_leg_upper": (0, 160, 176),
-                "front_leg_lower": (0, 138, 152),
-                "rear_leg_upper":  (0, 130, 144),
-                "rear_leg_lower":  (0, 110, 122),
+                "hair":            (  0, 255, 180),  # neon mint
+                "front_arm_upper": (  0, 185, 200),
+                "front_arm_lower": (  0, 168, 182),
+                "rear_arm_upper":  (  0, 170, 185),
+                "rear_arm_lower":  (  0, 154, 168),
+                "front_leg_upper": (  0, 155, 170),
+                "front_leg_lower": (  0, 138, 152),
+                "rear_leg_upper":  (  0, 130, 144),
+                "rear_leg_lower":  (  0, 110, 122),
                 "hands":           (210, 178, 144),
-                "feet":            (0, 80, 100),
+                "feet":            (  0,  80, 100),
             },
             "props": {
                 "belt":           (255, 60, 0),
-                "head_scale":     0.82,
-                "shoulder_ratio": 0.35,
-                "hip_ratio":      0.12,
-                "arm_width":      0.24,
-                "leg_width":      0.27,
+                "head_scale":     0.84,
+                "shoulder_ratio": 0.33,
+                "hip_ratio":      0.13,
+                "arm_width":      0.23,
+                "leg_width":      0.24,
                 "idle_tilt":      0.01,
+                "archetype":      "valkyrie",
+                "armor_color":    (  0, 200, 220),
+                "wing_color":     (180, 255, 240),
             },
         },
         "raider": {
@@ -754,6 +906,71 @@ _ACID = {
                 "leg_width":      0.26,
                 "idle_tilt":      -0.04,
                 "idle_shift":     0.02,
+            },
+        },
+        "wizard": {
+            "normal": {
+                # Acid Wizard: vivid yellow robe, orange hair, purple hat
+                "chest":           (200, 180,  20),
+                "torso":           (180, 160,  16),
+                "pelvis":          (196, 176,  18),
+                "head":            (200, 160, 120),
+                "face":            (164, 128,  96),
+                "hair":            (220, 220, 200),  # pale silver
+                "front_arm_upper": (190, 170,  18),
+                "front_arm_lower": (178, 158,  14),
+                "rear_arm_upper":  (180, 160,  16),
+                "rear_arm_lower":  (168, 148,  12),
+                "front_leg_upper": (194, 174,  18),
+                "front_leg_lower": (180, 160,  14),
+                "rear_leg_upper":  (184, 164,  16),
+                "rear_leg_lower":  (170, 150,  12),
+                "hands":           (196, 158, 118),
+                "feet":            (190, 170,  18),
+            },
+            "props": {
+                "head_scale":     0.92,
+                "shoulder_ratio": 0.30,
+                "hip_ratio":      0.12,
+                "arm_width":      0.25,
+                "leg_width":      0.22,
+                "idle_tilt":      0.00,
+                "archetype":      "wizard",
+                "hat_color":      (120,   0, 180),
+                "robe_color":     (196, 176,  18),
+                "beard_color":    (230, 225, 200),
+            },
+        },
+        "elf": {
+            "normal": {
+                # Acid Elf: electric orange tunic, vivid hair
+                "chest":           (240,  80,   0),
+                "torso":           (220,  70,   0),
+                "pelvis":          (250,  90,   0),
+                "head":            (200, 160, 122),
+                "face":            (164, 128,  96),
+                "hair":            ( 60, 240,  80),  # lime green
+                "front_arm_upper": (230,  76,   0),
+                "front_arm_lower": (188, 150, 110),
+                "rear_arm_upper":  (214,  70,   0),
+                "rear_arm_lower":  (176, 140, 100),
+                "front_leg_upper": (220,  72,   0),
+                "front_leg_lower": ( 80,  40,   0),
+                "rear_leg_upper":  (210,  66,   0),
+                "rear_leg_lower":  ( 70,  34,   0),
+                "hands":           (196, 158, 118),
+                "feet":            ( 80,  40,   0),
+            },
+            "props": {
+                "head_scale":     0.80,
+                "shoulder_ratio": 0.30,
+                "hip_ratio":      0.11,
+                "arm_width":      0.20,
+                "leg_width":      0.21,
+                "idle_tilt":      0.01,
+                "archetype":      "elf",
+                "hood_color":     (240,  80,   0),
+                "quiver_color":   (160,  60,   0),
             },
         },
         "boss": {
