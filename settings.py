@@ -88,6 +88,8 @@ class Settings:
         self.hair_colour_idx: int = 0
         # Display
         self.fullscreen: bool = False
+        # Number of local players (1–4); additional players must join explicitly
+        self.num_players: int = 1
 
     # ── Persistence ───────────────────────────────────────────────────────────
 
@@ -117,6 +119,7 @@ class Settings:
             self.suit_colour_idx = int(data.get("suit_colour_idx", self.suit_colour_idx))
             self.hair_colour_idx = int(data.get("hair_colour_idx", self.hair_colour_idx))
             self.fullscreen = bool(data.get("fullscreen", self.fullscreen))
+            self.num_players = max(1, min(4, int(data.get("num_players", self.num_players))))
         except Exception:
             pass  # corrupt file – use defaults
 
@@ -133,6 +136,7 @@ class Settings:
             "suit_colour_idx": self.suit_colour_idx,
             "hair_colour_idx": self.hair_colour_idx,
             "fullscreen":      self.fullscreen,
+            "num_players":  self.num_players,
         }
         try:
             with open(path, "w", encoding="utf-8") as fh:

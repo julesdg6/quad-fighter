@@ -345,8 +345,9 @@ class PangLevel(BaseLevel):
             self._left_x  + 200,
             self._right_x - 200,
         ]
-        # Determine actual player count: always P1+P2 (keyboard), plus one per joystick
-        num_players = min(4, 2 + len(self._joys))
+        # Determine actual player count from settings, capped by available input devices
+        # (keyboard supports P1+P2; each joystick adds one more player)
+        num_players = min(self.settings.num_players, 2 + len(self._joys))
         self._players = [
             _PangPlayer(i, spawn_xs[i], self._ground_y)
             for i in range(num_players)
