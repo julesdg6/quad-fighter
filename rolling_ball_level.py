@@ -126,8 +126,8 @@ _BOUNCEPAD_DEFS: list[tuple] = [
 # ── Gaps/pits: (z_start, z_end, x_left, x_right) ─────────────────────────────
 
 _GAP_DEFS: list[tuple] = [
-    (4760, 4840,  18,  80),   # right-side gap on the descent
-    (4920, 5000, -80, -18),   # left-side gap
+    (4790, 4845,  46,  82),   # right-side gap (far right only – dodge left)
+    (4940, 4995, -82, -46),   # left-side gap (far left only – dodge right)
 ]
 
 # ── Physics ───────────────────────────────────────────────────────────────────
@@ -433,9 +433,10 @@ class _SpinBar3D:
             ball.x  += nx * overlap
             ball.z  += nz * overlap
             dot      = ball.vx * nx + ball.vz * nz
+            # Reflect velocity component along normal, but preserve forward speed
             ball.vx  = (ball.vx - 2.0 * dot * nx) * _WALL_DAMP
-            ball.vz  = max(_AUTO_SPEED * 0.4,
-                           (ball.vz - 2.0 * dot * nz) * _WALL_DAMP)
+            new_vz   = (ball.vz - 2.0 * dot * nz) * _WALL_DAMP
+            ball.vz  = max(_AUTO_SPEED * 0.8, new_vz)
             self.flash = 8
             return True
         return False
