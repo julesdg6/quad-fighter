@@ -333,18 +333,29 @@ class GauntletLevel(BaseLevel):
         spawn_offsets = [(-20, -15), (20, -15), (-20, 15), (20, 15)]
         sx, sy = _ROOM_START.centerx, _ROOM_START.centery
 
+        num_local = self.settings.num_players
+
         # P1 always uses keyboard (+joystick[0] if present)
         j0 = self._joysticks[0] if self._joysticks else None
         self._players: list[_GPlayer] = [
             _GPlayer(sx + spawn_offsets[0][0], sy + spawn_offsets[0][1],
                      0, joystick=j0)
         ]
-        # P2–P4: one player per additional joystick
-        for i in range(1, min(4, len(self._joysticks))):
-            ox, oy = spawn_offsets[i]
+        # P2: keyboard_p2 layout + joystick[1] if available (requires num_players >= 2)
+        if num_local >= 2:
+            j1 = self._joysticks[1] if len(self._joysticks) > 1 else None
+            ox, oy = spawn_offsets[1]
             self._players.append(
-                _GPlayer(sx + ox, sy + oy, i, joystick=self._joysticks[i])
+                _GPlayer(sx + ox, sy + oy, 1, joystick=j1)
             )
+        # P3/P4: joystick only (requires both num_players and a joystick for that slot)
+        for i in range(2, min(num_local, 4)):
+            joy_idx = i  # joy[2] for P3, joy[3] for P4
+            if len(self._joysticks) > joy_idx:
+                ox, oy = spawn_offsets[i]
+                self._players.append(
+                    _GPlayer(sx + ox, sy + oy, i, joystick=self._joysticks[joy_idx])
+                )
 
         # Generators
         self._generators: list[_Generator] = [
@@ -429,6 +440,16 @@ class GauntletLevel(BaseLevel):
             if keys[kb1["move_down"]]:  dy += 1.0
             atk_light = bool(keys[kb1["punch"]])
             atk_heavy = bool(keys[kb1["kick"]])
+
+        # P2 gets keyboard_p2 layout
+        elif p.p_index == 1 and not p.joystick:
+            kb2 = self.settings.keyboard_p2
+            if keys[kb2.get("move_left",  pygame.K_a)]:  dx -= 1.0
+            if keys[kb2.get("move_right", pygame.K_d)]:  dx += 1.0
+            if keys[kb2.get("move_up",    pygame.K_w)]:  dy -= 1.0
+            if keys[kb2.get("move_down",  pygame.K_s)]:  dy += 1.0
+            atk_light = bool(keys[kb2.get("punch", pygame.K_r)])
+            atk_heavy = bool(keys[kb2.get("kick",  pygame.K_f)])
 
         # Normalise diagonal keyboard input
         mag = math.hypot(dx, dy)
