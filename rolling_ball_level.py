@@ -42,7 +42,7 @@ _FINISH_Z = 7200       # Z position of the finish line
 # Control points: (z, left_x, right_x, height)
 # Values are linearly interpolated between adjacent points.
 # height = track floor elevation above the global ground plane.
-_TRACK_CTRL: list[tuple] = [
+_TRACK_CTRL: list[tuple[int, int, int, int]] = [
     (   0, -120,  120,   0),   # wide starting straight
     ( 600, -120,  120,   0),
     ( 900,  -68,   68,   0),   # narrows – first challenge
@@ -68,7 +68,7 @@ _CHECKPOINTS = [1200, 2500, 3800, 5200]   # Z positions of checkpoint gates
 
 # ── Bumpers: (z, x, r) ────────────────────────────────────────────────────────
 
-_BUMPER_DEFS: list[tuple] = [
+_BUMPER_DEFS: list[tuple[int, int, int]] = [
     (1500,  32, 22),
     (1500, -46, 22),
     (1600,   0, 28),
@@ -81,7 +81,7 @@ _BUMPER_DEFS: list[tuple] = [
 
 # ── Barriers: (z, x, half_w, depth_z) ────────────────────────────────────────
 
-_BARRIER_DEFS: list[tuple] = [
+_BARRIER_DEFS: list[tuple[int, int, int, int]] = [
     ( 960,  32, 10, 14),
     (1010, -26, 10, 14),
     (1090,  44, 10, 14),
@@ -96,7 +96,7 @@ _BARRIER_DEFS: list[tuple] = [
 # ── Moving walls: (z, base_x, half_w, height_wld, amplitude, speed_rad, phase)
 # Oscillate laterally at a fixed Z position.
 
-_MWALL_DEFS: list[tuple] = [
+_MWALL_DEFS: list[tuple[int, int, int, int, int, float, float]] = [
     (2200, 0, 12, 80, 54, 0.030, 0.00),
     (2300, 0, 12, 80, 54, 0.030, math.pi),
     (2400, 0, 12, 80, 44, 0.025, 0.60),
@@ -106,7 +106,7 @@ _MWALL_DEFS: list[tuple] = [
 # ── Spin bars: (z, pivot_x, length, ang_speed_rad, phase_rad) ─────────────────
 # Rotate in the XZ plane (horizontal sweep).
 
-_SPINBAR_DEFS: list[tuple] = [
+_SPINBAR_DEFS: list[tuple[int, int, int, float, float]] = [
     (4400,   0, 82,  0.040, 0.00),
     (4540,  22, 72, -0.050, 1.00),
     (4680,   0, 78,  0.035, 2.10),
@@ -115,7 +115,7 @@ _SPINBAR_DEFS: list[tuple] = [
 
 # ── Bounce pads: (z, x, r, boost_vz, boost_vh) ────────────────────────────────
 
-_BOUNCEPAD_DEFS: list[tuple] = [
+_BOUNCEPAD_DEFS: list[tuple[int, int, int, float, float]] = [
     (5390, -44, 28, 190,  90),
     (5460,  44, 28, 190,  90),
     (5570,   0, 32, 240, 115),
@@ -125,7 +125,7 @@ _BOUNCEPAD_DEFS: list[tuple] = [
 
 # ── Gaps/pits: (z_start, z_end, x_left, x_right) ─────────────────────────────
 
-_GAP_DEFS: list[tuple] = [
+_GAP_DEFS: list[tuple[int, int, int, int]] = [
     (4790, 4845,  46,  82),   # right-side gap (far right only – dodge left)
     (4940, 4995, -82, -46),   # left-side gap (far left only – dodge right)
 ]
@@ -187,7 +187,8 @@ _TIMER_LOW   = (255,  82,  82)
 _SPLIT_LINE  = ( 62,  62,  82)
 _VOID_COL    = ( 12,   8,  24)   # colour outside the track bounds
 
-_PLAYER_COLS: list[tuple] = [
+# Each entry: (rim_colour, fill_colour, highlight_colour, label_colour)
+_PLAYER_COLS: list[tuple[tuple[int, int, int], ...]] = [
     ((100, 180, 255), ( 30,  80, 160), (200, 230, 255), (120, 200, 255)),  # P1 blue
     ((255, 100, 100), (160,  30,  30), (255, 210, 210), (255, 140, 140)),  # P2 red
     (( 80, 220, 120), ( 30, 120,  60), (180, 255, 200), (100, 255, 160)),  # P3 green
@@ -707,8 +708,8 @@ class RollingBallLevel(BaseLevel):
 
             # Friction: damp only excess speed above AUTO_SPEED to keep base
             # rolling feel; below AUTO_SPEED gradually recover (unless braking).
-            # The formula `(1 - (1 - k) * dt * 60)` is a frame-rate-compensated
-            # per-frame multiplier equivalent to k^(dt*60).
+            # `(1 - (1 - k) * dt * 60)` is a first-order frame-rate-compensated
+            # multiplier: applies fraction `(1-k)` of damping per 1/60-s tick.
             if az < 0:
                 ball.vz  = max(0.0, ball.vz)
             else:
@@ -1311,7 +1312,7 @@ class RollingBallLevel(BaseLevel):
         n_lines = 6
         length  = int(r * 1.2 * speed_frac)
         for i in range(n_lines):
-            angle = math.pi + (i / n_lines) * math.pi * _SPEED_LINE_SPREAD - math.pi * _SPEED_LINE_OFFSET
+            angle = math.pi * (1 + (i / n_lines) * _SPEED_LINE_SPREAD - _SPEED_LINE_OFFSET)
             ex = sx + int(math.cos(angle) * (r + length))
             ey = sy + int(math.sin(angle) * (r + length))
             sx2 = sx + int(math.cos(angle) * r)
