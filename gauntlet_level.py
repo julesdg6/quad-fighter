@@ -22,6 +22,7 @@ import random
 
 import pygame
 
+from base_level import BaseLevel
 from settings import AXIS_DEADZONE
 
 # ── World ─────────────────────────────────────────────────────────────────────
@@ -268,7 +269,7 @@ class _Door:
 # ── Main class ────────────────────────────────────────────────────────────────
 
 
-class GauntletLevel:
+class GauntletLevel(BaseLevel):
     """Expanded Gauntlet co-op dungeon mode.
 
     Call ``run()`` to play.  Returns ``"complete"``, ``"dead"``, or
@@ -276,16 +277,10 @@ class GauntletLevel:
     """
 
     def __init__(self, screen, width: int, height: int, fps: int,
-                 settings, font, acid, sfx, joystick=None) -> None:
-        self.screen   = screen
-        self.width    = width
-        self.height   = height
-        self.fps      = fps
-        self.settings = settings
-        self.font     = font
-        self.acid     = acid
-        self.sfx      = sfx
-        self._clock   = pygame.time.Clock()
+                 settings, font, acid, sfx, joystick=None, joystick2=None) -> None:
+        super().__init__(screen, width, height, fps, settings, font, acid, sfx,
+                         joystick=joystick, joystick2=joystick2)
+        self._clock = pygame.time.Clock()
 
         # Detect joysticks for up to 4-player support
         n_joy = pygame.joystick.get_count()

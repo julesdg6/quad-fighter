@@ -22,6 +22,8 @@ import random
 
 import pygame
 
+from base_level import BaseLevel
+
 # ── World / screen constants ──────────────────────────────────────────────────
 _WORLD_W   = 2400
 _GROUND_Y  = 520      # screen-space y of the ground line (world-fixed)
@@ -306,7 +308,7 @@ class _Projectile:
 
 # ── Main level class ──────────────────────────────────────────────────────────
 
-class RampageLevel:
+class RampageLevel(BaseLevel):
     """Self-contained Kaiju destruction level.
 
     Call ``run()`` to play.  Returns ``"complete"``, ``"dead"``, or
@@ -314,17 +316,10 @@ class RampageLevel:
     """
 
     def __init__(self, screen, width, height, fps, settings, font, acid, sfx,
-                 joystick=None):
-        self.screen   = screen
-        self.width    = width
-        self.height   = height
-        self.fps      = fps
-        self.settings = settings
-        self.font     = font
-        self.acid     = acid
-        self.sfx      = sfx
-        self.joystick = joystick
-        self._clock   = pygame.time.Clock()
+                 joystick=None, joystick2=None):
+        super().__init__(screen, width, height, fps, settings, font, acid, sfx,
+                         joystick=joystick, joystick2=joystick2)
+        self._clock = pygame.time.Clock()
 
     # ── Public entry point ────────────────────────────────────────────────────
 

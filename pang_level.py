@@ -23,6 +23,8 @@ import random
 
 import pygame
 
+from base_level import BaseLevel
+
 from settings import AXIS_DEADZONE
 
 # ── Layout ────────────────────────────────────────────────────────────────────
@@ -251,7 +253,7 @@ class _PangPlayer:
 
 # ── Main level class ──────────────────────────────────────────────────────────
 
-class PangLevel:
+class PangLevel(BaseLevel):
     """Self-contained Pang-style multiplayer level.
 
     Call ``run()`` to play.  Returns ``"complete"``, ``"dead"``, or
@@ -268,14 +270,8 @@ class PangLevel:
     def __init__(self, screen, width: int, height: int, fps: int,
                  settings, font, acid, sfx,
                  joystick=None, joystick2=None) -> None:
-        self.screen    = screen
-        self.width     = width
-        self.height    = height
-        self.fps       = fps
-        self.settings  = settings
-        self.font      = font
-        self.acid      = acid
-        self.sfx       = sfx
+        super().__init__(screen, width, height, fps, settings, font, acid, sfx,
+                         joystick=joystick, joystick2=joystick2)
         # Joysticks for P3 / P4
         self._joys: list = []
         if joystick is not None:

@@ -18,8 +18,16 @@ from rampage_level import RampageLevel
 from gauntlet_level import GauntletLevel
 from pang_level import PangLevel
 from rolling_ball_level import RollingBallLevel
+from level_manager import LevelManager
 from version import GAME_VERSION, BUILD_NUMBER, PROTOCOL_VERSION
 from net_client import NetClient
+
+# Register all pluggable levels with the engine
+LevelManager.register("moto",         MotoLevel)
+LevelManager.register("rampage",      RampageLevel)
+LevelManager.register("gauntlet",     GauntletLevel)
+LevelManager.register("pang",         PangLevel)
+LevelManager.register("rolling_ball", RollingBallLevel)
 
 pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.init()
@@ -279,26 +287,14 @@ if QUAD_FIGHTER_AUTO_EXIT_FRAMES == 0:
             sfx.set_volume(settings.sfx_volume / 100.0)
             # Sync appearance settings to player objects
             _apply_appearance(settings)
-        elif result == "moto":
-            MotoLevel(screen, WIDTH, HEIGHT, FPS, settings, font, acid, sfx,
-                      joystick=joystick).run()
-            # Loop back to the splash after the moto level ends
-        elif result == "rampage":
-            RampageLevel(screen, WIDTH, HEIGHT, FPS, settings, font, acid, sfx,
-                         joystick=joystick).run()
-            # Loop back to the splash after the rampage level ends
-        elif result == "gauntlet":
-            GauntletLevel(screen, WIDTH, HEIGHT, FPS, settings, font, acid, sfx,
-                          joystick=joystick).run()
-            # Loop back to the splash after the gauntlet level ends
-        elif result == "pang":
-            PangLevel(screen, WIDTH, HEIGHT, FPS, settings, font, acid, sfx,
-                      joystick=joystick, joystick2=joystick2).run()
-            # Loop back to the splash after the pang level ends
-        elif result == "rolling_ball":
-            RollingBallLevel(screen, WIDTH, HEIGHT, FPS, settings, font, acid, sfx,
-                             joystick=joystick, joystick2=joystick2).run()
-            # Loop back to the splash after the rolling ball level ends
+        elif result in LevelManager.available_keys():
+            # Load and run any registered level by key
+            LevelManager.load(
+                result,
+                screen, WIDTH, HEIGHT, FPS, settings, font, acid, sfx,
+                joystick=joystick, joystick2=joystick2,
+            ).run()
+            # Loop back to the splash after the level ends
         else:
             break  # "game" – proceed to gameplay
 

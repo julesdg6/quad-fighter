@@ -23,6 +23,8 @@ import random
 
 import pygame
 
+from base_level import BaseLevel
+
 from settings import AXIS_DEADZONE
 
 # ── Physics ───────────────────────────────────────────────────────────────────
@@ -405,7 +407,7 @@ class _BouncePad:
 # ── Main level class ──────────────────────────────────────────────────────────
 
 
-class RollingBallLevel:
+class RollingBallLevel(BaseLevel):
     """Self-contained rolling ball assault course.
 
     Call ``run()`` to play.  Returns ``"complete"``, ``"dead"``, or
@@ -424,14 +426,8 @@ class RollingBallLevel:
                  settings, font,
                  acid, sfx,
                  joystick=None, joystick2=None) -> None:
-        self.screen   = screen
-        self.width    = width
-        self.height   = height
-        self.fps      = fps
-        self.settings = settings
-        self.font     = font
-        self.acid     = acid
-        self.sfx      = sfx
+        super().__init__(screen, width, height, fps, settings, font, acid, sfx,
+                         joystick=joystick, joystick2=joystick2)
 
         self._joys: list = []
         if joystick is not None:
