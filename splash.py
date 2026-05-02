@@ -29,12 +29,13 @@ MENU_HINT_COLOUR = (110, 100, 140)
 
 # Menu items and their return values
 MENU_ITEMS = [
-    ("Start Game",    "game"),
-    ("Moto Level",    "moto"),
-    ("Rampage Level", "rampage"),
-    ("Gauntlet Mode", "gauntlet"),
-    ("Pang Mode",     "pang"),
-    ("Options",       "options"),
+    ("Start Game",       "game"),
+    ("Moto Level",       "moto"),
+    ("Rampage Level",    "rampage"),
+    ("Gauntlet Mode",    "gauntlet"),
+    ("Pang Mode",        "pang"),
+    ("Rolling Ball",     "rolling_ball"),
+    ("Options",          "options"),
 ]
 
 
