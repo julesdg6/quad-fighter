@@ -301,6 +301,9 @@ if QUAD_FIGHTER_AUTO_EXIT_FRAMES == 0:
 # Start main game at 90 BPM (calm baseline; escalates with enemies/boss)
 acid.set_target_bpm(90)
 
+# Determine whether a second local player is active
+p2_active = settings.num_players >= 2
+
 # Main loop
 running = True
 frame_count = 0
@@ -350,10 +353,11 @@ while running:
         player.update(extra_input=ctrl_input, keyboard_map=settings.keyboard)
         player_rect = player.get_rect()
 
-        prev_player2_x = player2.x
-        ctrl_input2 = settings.read_controller(joystick2)
-        player2.update(extra_input=ctrl_input2, keyboard_map=settings.keyboard_p2)
-        player2_rect = player2.get_rect()
+        if p2_active:
+            prev_player2_x = player2.x
+            ctrl_input2 = settings.read_controller(joystick2)
+            player2.update(extra_input=ctrl_input2, keyboard_map=settings.keyboard_p2)
+            player2_rect = player2.get_rect()
 
         # Grab attempt: P1
         if player.grab_triggered:
@@ -366,7 +370,7 @@ while running:
                     break
 
         # Grab attempt: P2
-        if player2.grab_triggered:
+        if p2_active and player2.grab_triggered:
             grab_rect2 = player2.get_rect().inflate(GRAB_RANGE * 2, GRAB_VERTICAL_TOLERANCE)
             for enemy in enemies:
                 if enemy.health <= 0 or enemy.grabbed or enemy.is_boss:
@@ -395,7 +399,7 @@ while running:
             sfx.play("enemy_hurt")
 
         # Throw: P2
-        if player2.throw_triggered and player2.grabbed_enemy is not None:
+        if p2_active and player2.throw_triggered and player2.grabbed_enemy is not None:
             throw_enemy2 = player2.grabbed_enemy
             player2.release_grab()
             throw_enemy2.health = max(0, throw_enemy2.health - GRAB_THROW_DAMAGE)
@@ -427,17 +431,18 @@ while running:
             player_rect = player.get_rect()
 
         # Solid object collision: P2
-        for obj in environment_objects:
-            if not obj.solid or obj.health <= 0:
-                continue
-            obj_rect = obj.get_rect()
-            if not player2_rect.colliderect(obj_rect):
-                continue
-            if player2.x > prev_player2_x:
-                player2.x = obj.x - player2.width
-            elif player2.x < prev_player2_x:
-                player2.x = obj.x + obj.width
-            player2_rect = player2.get_rect()
+        if p2_active:
+            for obj in environment_objects:
+                if not obj.solid or obj.health <= 0:
+                    continue
+                obj_rect = obj.get_rect()
+                if not player2_rect.colliderect(obj_rect):
+                    continue
+                if player2.x > prev_player2_x:
+                    player2.x = obj.x - player2.width
+                elif player2.x < prev_player2_x:
+                    player2.x = obj.x + obj.width
+                player2_rect = player2.get_rect()
 
         while spawn_cursor < len(enemy_spawn_zones) and player.x >= enemy_spawn_zones[spawn_cursor]["trigger_x"]:
             zone = enemy_spawn_zones[spawn_cursor]
@@ -454,20 +459,20 @@ while running:
                 prev_sfx_attack_id = enemy_sfx_attack_ids.get(id(enemy), enemy.attack_id)
                 if boss_intro_timer > 0 and enemy.is_boss:
                     # Face the nearest alive player during boss intro
-                    if player.health > 0 and player2.health > 0:
+                    if p2_active and player.health > 0 and player2.health > 0:
                         nearest = player if abs(player.x - enemy.x) <= abs(player2.x - enemy.x) else player2
-                    elif player2.health > 0:
+                    elif p2_active and player2.health > 0:
                         nearest = player2
                     else:
                         nearest = player
                     enemy.facing = -1 if nearest.x < enemy.x else 1
                 else:
                     # Target the nearest alive player
-                    if player.health > 0 and player2.health > 0:
+                    if p2_active and player.health > 0 and player2.health > 0:
                         d1 = abs((player.x + player.width / 2) - (enemy.x + enemy.width / 2))
                         d2 = abs((player2.x + player2.width / 2) - (enemy.x + enemy.width / 2))
                         target_p = player if d1 <= d2 else player2
-                    elif player2.health > 0:
+                    elif p2_active and player2.health > 0:
                         target_p = player2
                     else:
                         target_p = player
@@ -534,42 +539,43 @@ while running:
                     environment_objects.remove(picked_weapon)
 
         # ── Attack SFX + weapon pickup: P2 ───────────────────────────────────
-        attack_started2 = player2.attack_id != last_attack_id2
-        if attack_started2:
-            last_attack_id2 = player2.attack_id
-            attack_type2 = player2.current_attack_type
-            if attack_type2 in ("aerial_light", "aerial_heavy"):
-                sfx.play("aerial")
-            elif attack_type2 in ("secondary", "crouch_kick"):
-                sfx.play("kick")
-            elif attack_type2 in ("spin_attack", "dash_punch", "dive_kick"):
-                sfx.play("special")
-                special_flash_timer2 = 50
-                special_flash_name2 = {
-                    "spin_attack": "SPIN ATTACK",
-                    "dash_punch":  "DASH PUNCH",
-                    "dive_kick":   "DIVE KICK",
-                }.get(attack_type2, "SPECIAL")
-            else:
-                sfx.play("punch")
-            if player2.weapon_name is None and player2.held_object is None:
-                pickup_rect2 = player2.get_rect().inflate(68, 20)
-                picked_weapon2 = None
-                for obj in environment_objects:
-                    if obj.kind not in WEAPON_KINDS:
-                        continue
-                    if pickup_rect2.colliderect(obj.get_rect()):
-                        picked_weapon2 = obj
-                        break
-                if picked_weapon2 is not None:
-                    stats2 = WEAPON_STATS[picked_weapon2.kind]
-                    player2.equip_weapon(
-                        picked_weapon2.kind,
-                        hits=stats2["hits"],
-                        damage_bonus=stats2["damage"],
-                        range_bonus=stats2["range"],
-                    )
-                    environment_objects.remove(picked_weapon2)
+        if p2_active:
+            attack_started2 = player2.attack_id != last_attack_id2
+            if attack_started2:
+                last_attack_id2 = player2.attack_id
+                attack_type2 = player2.current_attack_type
+                if attack_type2 in ("aerial_light", "aerial_heavy"):
+                    sfx.play("aerial")
+                elif attack_type2 in ("secondary", "crouch_kick"):
+                    sfx.play("kick")
+                elif attack_type2 in ("spin_attack", "dash_punch", "dive_kick"):
+                    sfx.play("special")
+                    special_flash_timer2 = 50
+                    special_flash_name2 = {
+                        "spin_attack": "SPIN ATTACK",
+                        "dash_punch":  "DASH PUNCH",
+                        "dive_kick":   "DIVE KICK",
+                    }.get(attack_type2, "SPECIAL")
+                else:
+                    sfx.play("punch")
+                if player2.weapon_name is None and player2.held_object is None:
+                    pickup_rect2 = player2.get_rect().inflate(68, 20)
+                    picked_weapon2 = None
+                    for obj in environment_objects:
+                        if obj.kind not in WEAPON_KINDS:
+                            continue
+                        if pickup_rect2.colliderect(obj.get_rect()):
+                            picked_weapon2 = obj
+                            break
+                    if picked_weapon2 is not None:
+                        stats2 = WEAPON_STATS[picked_weapon2.kind]
+                        player2.equip_weapon(
+                            picked_weapon2.kind,
+                            hits=stats2["hits"],
+                            damage_bonus=stats2["damage"],
+                            range_bonus=stats2["range"],
+                        )
+                        environment_objects.remove(picked_weapon2)
 
         # Thrown object physics + enemy/ground collision
         for obj in list(environment_objects):
@@ -636,40 +642,41 @@ while running:
             player.consume_weapon_hit()
 
         # ── Player attacks on enemies: P2 ─────────────────────────────────────
-        weapon_hit_registered2 = False
-        for enemy in enemies:
-            if enemy.health <= 0:
-                continue
-            if check_attack_collision(player2, enemy):
-                enemy.health = max(0, enemy.health - player2.get_attack_damage())
-                region2 = get_hit_region(player2.get_attack_rect(), enemy)
-                apply_knockback(enemy, player2, knockback_distance=player2.get_attack_knockback(), hit_region=region2)
-                hit_pause_timer = HIT_PAUSE_FRAMES
-                impact_timer = IMPACT_FLASH_FRAMES
-                impact_rect = enemy.get_rect().copy()
-                sfx.play("impact")
-                sfx.play("enemy_hurt")
-                weapon_hit_registered2 = True
+        if p2_active:
+            weapon_hit_registered2 = False
+            for enemy in enemies:
+                if enemy.health <= 0:
+                    continue
+                if check_attack_collision(player2, enemy):
+                    enemy.health = max(0, enemy.health - player2.get_attack_damage())
+                    region2 = get_hit_region(player2.get_attack_rect(), enemy)
+                    apply_knockback(enemy, player2, knockback_distance=player2.get_attack_knockback(), hit_region=region2)
+                    hit_pause_timer = HIT_PAUSE_FRAMES
+                    impact_timer = IMPACT_FLASH_FRAMES
+                    impact_rect = enemy.get_rect().copy()
+                    sfx.play("impact")
+                    sfx.play("enemy_hurt")
+                    weapon_hit_registered2 = True
 
-        attack_rect2 = player2.get_attack_rect()
-        if attack_rect2 is not None:
-            for obj in list(environment_objects):
-                if obj.health <= 0:
-                    continue
-                if not attack_rect2.colliderect(obj.get_rect()):
-                    continue
-                if not obj.take_hit(player2.attack_id, player2.get_attack_damage()):
-                    continue
-                weapon_hit_registered2 = True
-                hit_pause_timer = HIT_PAUSE_FRAMES
-                impact_timer = IMPACT_FLASH_FRAMES
-                impact_rect = obj.get_rect().copy()
-                if obj.is_destroyed():
-                    break_object(obj, environment_objects, break_effects)
-                    sfx.play("break")
+            attack_rect2 = player2.get_attack_rect()
+            if attack_rect2 is not None:
+                for obj in list(environment_objects):
+                    if obj.health <= 0:
+                        continue
+                    if not attack_rect2.colliderect(obj.get_rect()):
+                        continue
+                    if not obj.take_hit(player2.attack_id, player2.get_attack_damage()):
+                        continue
+                    weapon_hit_registered2 = True
+                    hit_pause_timer = HIT_PAUSE_FRAMES
+                    impact_timer = IMPACT_FLASH_FRAMES
+                    impact_rect = obj.get_rect().copy()
+                    if obj.is_destroyed():
+                        break_object(obj, environment_objects, break_effects)
+                        sfx.play("break")
 
-        if weapon_hit_registered2:
-            player2.consume_weapon_hit()
+            if weapon_hit_registered2:
+                player2.consume_weapon_hit()
 
         # ── Food pickup ────────────────────────────────────────────────────────
         player_rect = player.get_rect()
@@ -680,18 +687,19 @@ while running:
                 continue
             player.health = min(player.max_health, player.health + FOOD_HEAL_AMOUNT)
             environment_objects.remove(obj)
-        player2_rect = player2.get_rect()
-        for obj in list(environment_objects):
-            if obj.kind != "food":
-                continue
-            if not player2_rect.colliderect(obj.get_rect()):
-                continue
-            player2.health = min(player2.max_health, player2.health + FOOD_HEAL_AMOUNT)
-            environment_objects.remove(obj)
+        if p2_active:
+            player2_rect = player2.get_rect()
+            for obj in list(environment_objects):
+                if obj.kind != "food":
+                    continue
+                if not player2_rect.colliderect(obj.get_rect()):
+                    continue
+                player2.health = min(player2.max_health, player2.health + FOOD_HEAL_AMOUNT)
+                environment_objects.remove(obj)
 
         # ── Enemy attacks on players ───────────────────────────────────────────
         player_rect = player.get_rect()
-        player2_rect = player2.get_rect()
+        player2_rect = player2.get_rect() if p2_active else None
         for enemy in enemies:
             if enemy.health <= 0:
                 continue
@@ -717,7 +725,7 @@ while running:
                         sfx.play("impact")
                         sfx.play("player_hurt")
             # Check P2 (if enemy hasn't already landed a hit this swing)
-            if enemy.last_hit_player_attack_id != enemy.attack_id:
+            if p2_active and player2_rect is not None and enemy.last_hit_player_attack_id != enemy.attack_id:
                 if enemy_attack_rect.colliderect(player2_rect):
                     if player2.invincible_timer > 0:
                         enemy.last_hit_player_attack_id = enemy.attack_id
@@ -766,15 +774,21 @@ while running:
     boss_enemy = next((enemy for enemy in enemies if enemy.is_boss), None)
     if boss_enemy is not None:
         # In boss fight, center on the midpoint of all players and the boss
-        players_mid_x = (player.x + player.width / 2 + player2.x + player2.width / 2) / 2
+        if p2_active:
+            players_mid_x = (player.x + player.width / 2 + player2.x + player2.width / 2) / 2
+        else:
+            players_mid_x = player.x + player.width / 2
         focus_x = (
             (players_mid_x + boss_enemy.x) * BOSS_CAMERA_CENTER_WEIGHT
             + boss_enemy.width * BOSS_CAMERA_FORWARD_OFFSET_RATIO
         )
         camera_target = focus_x - WIDTH * 0.5
     else:
-        # Follow the average x position of both players
-        mid_x = (player.x + player.width / 2 + player2.x + player2.width / 2) / 2
+        # Follow the player (or average both players if P2 is active)
+        if p2_active:
+            mid_x = (player.x + player.width / 2 + player2.x + player2.width / 2) / 2
+        else:
+            mid_x = player.x + player.width / 2
         camera_target = mid_x - WIDTH * CAMERA_FOLLOW_RATIO
     max_camera_x = (camera_lock_right - WIDTH) if camera_lock_right is not None else (WORLD_WIDTH - WIDTH)
     camera_x = max(0, min(int(camera_target), max_camera_x))
@@ -782,10 +796,11 @@ while running:
         player.x = camera_x + 12
     if camera_lock_right is not None:
         player.x = min(player.x, camera_lock_right - player.width - CAMERA_LOCK_RIGHT_MARGIN)
-    if player2.x < camera_x + 12:
-        player2.x = camera_x + 12
-    if camera_lock_right is not None:
-        player2.x = min(player2.x, camera_lock_right - player2.width - CAMERA_LOCK_RIGHT_MARGIN)
+    if p2_active:
+        if player2.x < camera_x + 12:
+            player2.x = camera_x + 12
+        if camera_lock_right is not None:
+            player2.x = min(player2.x, camera_lock_right - player2.width - CAMERA_LOCK_RIGHT_MARGIN)
 
     stage_complete = (
         boss_spawned
@@ -799,7 +814,8 @@ while running:
     if level_transition_timer > 0:
         level_transition_timer -= 1
         player.x = min(WORLD_WIDTH - player.width, player.x + LEVEL_COMPLETE_AUTO_WALK_SPEED)
-        player2.x = min(WORLD_WIDTH - player2.width, player2.x + LEVEL_COMPLETE_AUTO_WALK_SPEED)
+        if p2_active:
+            player2.x = min(WORLD_WIDTH - player2.width, player2.x + LEVEL_COMPLETE_AUTO_WALK_SPEED)
         just_advanced_level = False
         if level_transition_timer == 0:
             level_number += 1
@@ -826,27 +842,28 @@ while running:
             player.throw_triggered = False
             player.combo_step = 0
             player.combo_window_timer = 0
-            player2.x = PLAYER_SPAWN_X + 64
-            player2.ground_y = player2.screen_height - player2.height - 16
-            player2.y = player2.ground_y
-            player2.vel_x = 0.0
-            player2.vel_y = 0.0
-            player2.attack_timer = 0
-            player2.post_attack_timer = 0
-            player2.attack_cooldown_timer = 0
-            player2.health = min(player2.max_health, player2.health + 20)
-            player2.weapon_name = None
-            player2.weapon_hits_remaining = 0
-            player2.weapon_damage_bonus = 0
-            player2.weapon_range_bonus = 0
-            player2.held_object = None
-            player2.grab_timer = 0
-            player2.grab_cooldown_timer = 0
-            player2.grabbed_enemy = None
-            player2.grab_triggered = False
-            player2.throw_triggered = False
-            player2.combo_step = 0
-            player2.combo_window_timer = 0
+            if p2_active:
+                player2.x = PLAYER_SPAWN_X + 64
+                player2.ground_y = player2.screen_height - player2.height - 16
+                player2.y = player2.ground_y
+                player2.vel_x = 0.0
+                player2.vel_y = 0.0
+                player2.attack_timer = 0
+                player2.post_attack_timer = 0
+                player2.attack_cooldown_timer = 0
+                player2.health = min(player2.max_health, player2.health + 20)
+                player2.weapon_name = None
+                player2.weapon_hits_remaining = 0
+                player2.weapon_damage_bonus = 0
+                player2.weapon_range_bonus = 0
+                player2.held_object = None
+                player2.grab_timer = 0
+                player2.grab_cooldown_timer = 0
+                player2.grabbed_enemy = None
+                player2.grab_triggered = False
+                player2.throw_triggered = False
+                player2.combo_step = 0
+                player2.combo_window_timer = 0
             enemies.clear()
             environment_objects.clear()
             environment_objects.extend(build_environment_objects())
@@ -915,7 +932,8 @@ while running:
     # Draw near-layer background (lamps, vehicles, background characters)
     draw_background_post_lane(screen, camera_x, frame_count, bg_data, WIDTH, HEIGHT, LANE_TOP, LANE_BOTTOM)
     drawables.append(("player", player.ground_y, player))
-    drawables.append(("player", player2.ground_y, player2))
+    if p2_active:
+        drawables.append(("player", player2.ground_y, player2))
     for enemy in enemies:
         drawables.append(("enemy", enemy.ground_y, enemy))
     for obj in environment_objects:
@@ -943,7 +961,7 @@ while running:
         pygame.draw.rect(screen, current_theme["grab_outline"], grab_draw_rect, 2)
 
     # Grab indicator: outline around enemy grabbed by P2
-    if player2.is_grabbing() and player2.grabbed_enemy is not None:
+    if p2_active and player2.is_grabbing() and player2.grabbed_enemy is not None:
         ge2 = player2.grabbed_enemy
         grab_draw_rect2 = ge2.get_rect().move(-camera_x, 0).inflate(6, 6)
         pygame.draw.rect(screen, current_theme["grab_outline"], grab_draw_rect2, 2)
@@ -1003,7 +1021,7 @@ while running:
     if player.is_grabbing():
         grab_prompt = font.render("P1 GRAB - PUNCH TO THROW", True, current_theme["hud_grab"])
         screen.blit(grab_prompt, (WIDTH // 2 - grab_prompt.get_width() // 2, HEIGHT - 42))
-    elif player2.is_grabbing():
+    elif p2_active and player2.is_grabbing():
         grab_prompt2 = font.render("P2 GRAB - PUNCH TO THROW", True, current_theme["hud_grab"])
         screen.blit(grab_prompt2, (WIDTH // 2 - grab_prompt2.get_width() // 2, HEIGHT - 42))
 
@@ -1026,22 +1044,23 @@ while running:
         screen.blit(p1_weapon_surf, (16, 55))
 
     # ── P2 health bar (right side) ────────────────────────────────────────────
-    hp2_ratio = max(0.0, min(1.0, player2.health / player2.max_health))
-    if hp2_ratio > 0.6:
-        hp2_color = current_theme["hud_hp_good"]
-    elif hp2_ratio > 0.3:
-        hp2_color = current_theme["hud_hp_mid"]
-    else:
-        hp2_color = current_theme["hud_hp_low"]
-    hp2_bar_rect = pygame.Rect(WIDTH - 186, 39, 140, 12)
-    pygame.draw.rect(screen, current_theme["hud_bar_bg"], hp2_bar_rect)
-    pygame.draw.rect(screen, hp2_color, (hp2_bar_rect.x, hp2_bar_rect.y, int(hp2_bar_rect.width * hp2_ratio), hp2_bar_rect.height))
-    pygame.draw.rect(screen, current_theme["hud_bar_outline"], hp2_bar_rect, 1)
-    hp2_label = font.render("P2", True, current_theme["hud_text"])
-    screen.blit(hp2_label, (WIDTH - 40, 36))
-    if player2.weapon_name is not None:
-        p2_weapon_surf = font.render(player2.weapon_name.upper(), True, current_theme["hud_text"])
-        screen.blit(p2_weapon_surf, (WIDTH - 186, 55))
+    if p2_active:
+        hp2_ratio = max(0.0, min(1.0, player2.health / player2.max_health))
+        if hp2_ratio > 0.6:
+            hp2_color = current_theme["hud_hp_good"]
+        elif hp2_ratio > 0.3:
+            hp2_color = current_theme["hud_hp_mid"]
+        else:
+            hp2_color = current_theme["hud_hp_low"]
+        hp2_bar_rect = pygame.Rect(WIDTH - 186, 39, 140, 12)
+        pygame.draw.rect(screen, current_theme["hud_bar_bg"], hp2_bar_rect)
+        pygame.draw.rect(screen, hp2_color, (hp2_bar_rect.x, hp2_bar_rect.y, int(hp2_bar_rect.width * hp2_ratio), hp2_bar_rect.height))
+        pygame.draw.rect(screen, current_theme["hud_bar_outline"], hp2_bar_rect, 1)
+        hp2_label = font.render("P2", True, current_theme["hud_text"])
+        screen.blit(hp2_label, (WIDTH - 40, 36))
+        if player2.weapon_name is not None:
+            p2_weapon_surf = font.render(player2.weapon_name.upper(), True, current_theme["hud_text"])
+            screen.blit(p2_weapon_surf, (WIDTH - 186, 55))
 
     if boss_enemy is not None:
         boss_label = font.render("BOSS", True, current_theme["hud_text"])
@@ -1068,7 +1087,7 @@ while running:
         screen.blit(special_surf, (WIDTH // 2 - special_surf.get_width() // 2, 130))
 
     # Special move banner: P2
-    if special_flash_timer2 > 0:
+    if p2_active and special_flash_timer2 > 0:
         alpha2 = min(255, special_flash_timer2 * SPECIAL_FLASH_ALPHA_RATE)
         special_surf2 = font.render(f"★  {special_flash_name2}  ★", True, (64, 200, 255))
         special_surf2.set_alpha(alpha2)

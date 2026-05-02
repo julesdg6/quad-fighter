@@ -45,6 +45,10 @@ COL_WAIT  = (255, 160, 60)
 
 def _build_items() -> list:
     return [
+        {"type": "section", "label": "PLAYERS"},
+        {"type": "int_pick", "key": "num_players", "label": "Number of Players",
+         "min": 1, "max": 4,
+         "hint": "1 = solo  |  2 = P1+P2 keyboards  |  3–4 require gamepads for extra players"},
         {"type": "section", "label": "AUDIO"},
         {"type": "audio",   "key": "music_volume", "label": "Music Volume"},
         {"type": "audio",   "key": "sfx_volume",   "label": "SFX Volume"},
@@ -327,6 +331,9 @@ class OptionsScreen:
             colours = item["colours"]
             val = getattr(self.settings, item["key"])
             setattr(self.settings, item["key"], (val - 1) % len(colours))
+        elif item["type"] == "int_pick":
+            val = getattr(self.settings, item["key"])
+            setattr(self.settings, item["key"], max(item["min"], val - 1))
         return None
 
     def _adjust_right(self, acid_machine) -> str | None:
@@ -339,6 +346,9 @@ class OptionsScreen:
             colours = item["colours"]
             val = getattr(self.settings, item["key"])
             setattr(self.settings, item["key"], (val + 1) % len(colours))
+        elif item["type"] == "int_pick":
+            val = getattr(self.settings, item["key"])
+            setattr(self.settings, item["key"], min(item["max"], val + 1))
         return None
 
     def _activate(self, acid_machine) -> str | None:
@@ -490,6 +500,22 @@ class OptionsScreen:
                 # Simple left arrow indicator
                 arrow = self._font_item.render("◄", True, COL_SEL)
                 self.screen.blit(arrow, (cx - surf.get_width() // 2 - 22, y + 2))
+
+        elif itype == "int_pick":
+            label_surf = self._font_item.render(item["label"], True, col)
+            self.screen.blit(label_surf, (cx - 200, y + 2))
+            val = getattr(self.settings, item["key"])
+            val_surf = self._font_item.render(str(val), True, col)
+            self.screen.blit(val_surf, (cx + 60, y + 2))
+            if selected:
+                arrow_l = self._font_item.render("◄", True, COL_SEL)
+                arrow_r = self._font_item.render("►", True, COL_SEL)
+                self.screen.blit(arrow_l, (cx + 60 - 22, y + 2))
+                self.screen.blit(arrow_r, (cx + 60 + val_surf.get_width() + 4, y + 2))
+            hint_text = item.get("hint", "")
+            if hint_text:
+                hint_surf = self._font_hint.render(hint_text, True, COL_DIM)
+                self.screen.blit(hint_surf, (cx - 200, y + ITEM_HEIGHT - 4))
 
         elif itype == "colour_pick":
             label_surf = self._font_item.render(item["label"], True, col)
