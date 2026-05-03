@@ -454,9 +454,21 @@ QUAD_SERVER_PORT=7777 python server.py
 
 ### Unraid
 
-An Unraid Community Applications template is provided in the `unraid/` directory.
+An Unraid Community Applications template and icon are provided in the `unraid/` directory.
 
-**Quick deploy via Community Applications**
+**Option A – curl the template (recommended)**
+
+SSH into your Unraid server and run:
+
+```bash
+curl -L \
+  https://raw.githubusercontent.com/julesdg6/quad-fighter/main/unraid/quad-fighter-server.xml \
+  -o /boot/config/plugins/dockerMan/templates-user/quad-fighter-server.xml
+```
+
+The template will appear immediately under **Docker → Add Container → User Templates** in the Unraid web UI — no reboot required.
+
+**Option B – Community Applications**
 
 1. In the Unraid web UI open **Apps → Community Applications**.
 2. Search for **Quad Fighter** or click *Add Container* and paste the template URL:
