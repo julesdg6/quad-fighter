@@ -93,6 +93,11 @@ def _draw_bg(surface: pygame.Surface) -> None:
         pygame.draw.line(surface, (r, g, b), (0, y), (w, y))
 
 
+def _points_for_place(place: int) -> int:
+    """Return points for a 0-indexed placement (0 = 1st)."""
+    return PLACE_POINTS[min(place, len(PLACE_POINTS) - 1)]
+
+
 def _blit_centred(surf: pygame.Surface, dst: pygame.Surface,
                   cx: int, cy: int) -> None:
     dst.blit(surf, (cx - surf.get_width() // 2, cy - surf.get_height() // 2))
@@ -230,14 +235,12 @@ class LevelRandomizer:
                 return None   # user escaped during placement
 
         # Award points ────────────────────────────────────────────────────────
-        round_scores = [
-            PLACE_POINTS[min(p, len(PLACE_POINTS) - 1)]
-            for p in placements
-        ]
+        round_scores = [_points_for_place(p) for p in placements]
         for i, pts in enumerate(round_scores):
             self.scores[i] += pts
 
-        # Next spinner = player with highest cumulative score (P1 if tied)
+        # Next spinner = player with highest cumulative score (P1 if tied,
+        # which is intentional: P1 acts as host in tie situations)
         self.spinner_idx = self.scores.index(max(self.scores))
 
         # Show league table and wait for fire ─────────────────────────────────
@@ -441,7 +444,8 @@ class LevelRandomizer:
         )
         _blit_centred(inst_surf, self.screen, cx, 68)
 
-        place_labels = ["1ST", "2ND", "3RD", "4TH"]
+        _ALL_PLACE_LABELS = ["1ST", "2ND", "3RD", "4TH"]
+        place_labels = _ALL_PLACE_LABELS[:self.num_players]
         row_h  = 56
         start_y = 100
 
@@ -465,7 +469,7 @@ class LevelRandomizer:
             nm_surf = self._font_mid.render(_player_name(p_idx), True, p_col)
             self.screen.blit(nm_surf, (cx - 60, ry - nm_surf.get_height() // 2))
 
-            pts = PLACE_POINTS[min(pos, len(PLACE_POINTS) - 1)]
+            pts = _points_for_place(pos)
             pt_surf = self._font_mid.render(f"+{pts} pts", True,
                                             COL_SEL if selected else COL_TEXT)
             self.screen.blit(pt_surf, (cx + 80, ry - pt_surf.get_height() // 2))
