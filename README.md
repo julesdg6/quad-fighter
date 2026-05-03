@@ -410,7 +410,7 @@ Quad Fighter includes an experimental **headless authoritative TCP server** for 
 
 1. Open **Options** from the main menu
 2. Scroll to the **Network** section
-3. Enter the **Server IP** and **Server Port** (default: `127.0.0.1:7777`)
+3. Enter the **Server IP** and **Server Port** (default: `127.0.0.1:9046`)
 4. Select **Connect** and press Enter
 
 The Status field shows: `Connecting…` → `Connected` (or an error message).
@@ -440,7 +440,7 @@ docker compose up -d
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `QUAD_SERVER_HOST` | `0.0.0.0` | Listen address |
-| `QUAD_SERVER_PORT` | `7777` | TCP port |
+| `QUAD_SERVER_PORT` | `9046` | TCP port |
 | `QUAD_MAX_PLAYERS` | `4` | Maximum simultaneous connections |
 | `QUAD_TICK_RATE` | `30` | State broadcasts per second |
 
@@ -449,8 +449,45 @@ docker compose up -d
 ```bash
 python server.py
 # or
-QUAD_SERVER_PORT=7777 python server.py
+QUAD_SERVER_PORT=9046 python server.py
 ```
+
+### Unraid
+
+An Unraid Community Applications template and icon are provided in the `unraid/` directory.
+
+**Option A – curl the template (recommended)**
+
+SSH into your Unraid server and run:
+
+```bash
+curl -L \
+  https://raw.githubusercontent.com/julesdg6/quad-fighter/main/unraid/quad-fighter-server.xml \
+  -o /boot/config/plugins/dockerMan/templates-user/quad-fighter-server.xml
+```
+
+The template will appear immediately under **Docker → Add Container → User Templates** in the Unraid web UI — no reboot required.
+
+**Option B – Community Applications**
+
+1. In the Unraid web UI open **Apps → Community Applications**.
+2. Search for **Quad Fighter** or click *Add Container* and paste the template URL:
+   ```
+   https://raw.githubusercontent.com/julesdg6/quad-fighter/main/unraid/quad-fighter-server.xml
+   ```
+3. Adjust the port and environment variables as needed and click **Apply**.
+
+The template exposes:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Game Server Port | `9046` | Host TCP port clients connect to |
+| `QUAD_SERVER_PORT` | `9046` | Port inside the container (keep in sync) |
+| `QUAD_MAX_PLAYERS` | `4` | Maximum simultaneous connections |
+| `QUAD_TICK_RATE` | `30` | State broadcasts per second |
+
+The container image is `ghcr.io/julesdg6/quad-fighter-server:latest`.  
+Alternatively build locally with `docker build -t quad-fighter-server .` and set the *Repository* field in the template to `quad-fighter-server`.
 
 ---
 

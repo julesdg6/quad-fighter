@@ -66,7 +66,7 @@ SETTINGS_FILE = "settings.json"
 
 # Default network settings
 DEFAULT_SERVER_IP   = "127.0.0.1"
-DEFAULT_SERVER_PORT = 7777
+DEFAULT_SERVER_PORT = 9046
 
 
 # ── Settings class ────────────────────────────────────────────────────────────

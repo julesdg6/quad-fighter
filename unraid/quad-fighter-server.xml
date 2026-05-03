@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>quad-fighter-server</Name>
+  <Repository>ghcr.io/julesdg6/quad-fighter-server:latest</Repository>
+  <Registry>https://ghcr.io</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/julesdg6/quad-fighter/issues</Support>
+  <Project>https://github.com/julesdg6/quad-fighter</Project>
+  <Overview>
+    Headless authoritative game server for Quad Fighter – a side-scrolling
+    arcade beat-em-up.  Exposes a TCP server that clients connect to for
+    networked multiplayer sessions (up to 4 players).
+  </Overview>
+  <Category>GameServers:</Category>
+  <Icon>https://raw.githubusercontent.com/julesdg6/quad-fighter/main/unraid/icon.png</Icon>
+  <TemplateURL>https://raw.githubusercontent.com/julesdg6/quad-fighter/main/unraid/quad-fighter-server.xml</TemplateURL>
+  <ExtraParams>--restart=unless-stopped</ExtraParams>
+  <Shell>sh</Shell>
+  <DateInstalled></DateInstalled>
+
+  <!-- TCP port exposed to the host -->
+  <Config
+    Name="Game Server Port"
+    Target="9046"
+    Default="9046"
+    Mode="tcp"
+    Description="Host TCP port that Quad Fighter clients connect to."
+    Type="Port"
+    Display="always"
+    Required="true"
+    Mask="false">9046</Config>
+
+  <!-- Environment variables -->
+  <Config
+    Name="QUAD_SERVER_HOST"
+    Target="QUAD_SERVER_HOST"
+    Default="0.0.0.0"
+    Mode=""
+    Description="Interface the server binds to inside the container (0.0.0.0 = all interfaces)."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">0.0.0.0</Config>
+
+  <Config
+    Name="QUAD_SERVER_PORT"
+    Target="QUAD_SERVER_PORT"
+    Default="9046"
+    Mode=""
+    Description="TCP port the server listens on inside the container. Keep in sync with the port mapping above."
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false">9046</Config>
+
+  <Config
+    Name="QUAD_MAX_PLAYERS"
+    Target="QUAD_MAX_PLAYERS"
+    Default="4"
+    Mode=""
+    Description="Maximum simultaneous player connections (1–4)."
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false">4</Config>
+
+  <Config
+    Name="QUAD_TICK_RATE"
+    Target="QUAD_TICK_RATE"
+    Default="30"
+    Mode=""
+    Description="State broadcast frequency in Hz (ticks per second)."
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false">30</Config>
+</Container>

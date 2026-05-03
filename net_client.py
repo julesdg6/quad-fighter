@@ -6,7 +6,7 @@ Runs the socket I/O on a background daemon thread so the game loop stays at
 Usage::
 
     client = NetClient()
-    client.connect("192.168.1.64", 7777)   # non-blocking
+    client.connect("192.168.1.64", 9046)   # non-blocking
     client.send_input({"punch": True})
     state = client.latest_state()           # may be None if nothing received yet
     client.disconnect()
