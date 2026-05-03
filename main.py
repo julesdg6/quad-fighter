@@ -18,6 +18,7 @@ from rampage_level import RampageLevel
 from gauntlet_level import GauntletLevel
 from pang_level import PangLevel
 from rolling_ball_level import RollingBallLevel
+from rtype_level import RTypeLevel
 from level_manager import LevelManager
 from version import GAME_VERSION, BUILD_NUMBER, PROTOCOL_VERSION
 from net_client import NetClient
@@ -28,6 +29,7 @@ LevelManager.register("rampage",      RampageLevel)
 LevelManager.register("gauntlet",     GauntletLevel)
 LevelManager.register("pang",         PangLevel)
 LevelManager.register("rolling_ball", RollingBallLevel)
+LevelManager.register("rtype",        RTypeLevel)
 
 pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.init()
