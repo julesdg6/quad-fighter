@@ -21,6 +21,7 @@ from rolling_ball_level import RollingBallLevel
 from level_manager import LevelManager
 from version import GAME_VERSION, BUILD_NUMBER, PROTOCOL_VERSION
 from net_client import NetClient
+from discord_voice import DiscordVoice
 
 # Register all pluggable levels with the engine
 LevelManager.register("moto",         MotoLevel)
@@ -42,6 +43,9 @@ print(f"Quad Fighter  v{GAME_VERSION}  build {BUILD_NUMBER}  protocol {PROTOCOL_
 
 # Network client (non-blocking; connect from the options screen)
 net_client = NetClient()
+
+# Discord voice chat (connect from the options screen)
+discord_voice = DiscordVoice()
 
 # Detect first connected joystick (Xbox controller or similar)
 def _init_joystick():
@@ -283,7 +287,7 @@ if QUAD_FIGHTER_AUTO_EXIT_FRAMES == 0:
     while True:
         result = SplashScreen(screen, WIDTH, HEIGHT, FPS, joystick=joystick).run()
         if result == "options":
-            OptionsScreen(screen, WIDTH, HEIGHT, FPS, settings, joystick=joystick, net_client=net_client).run(acid, sfx)
+            OptionsScreen(screen, WIDTH, HEIGHT, FPS, settings, joystick=joystick, net_client=net_client, discord_voice=discord_voice).run(acid, sfx)
             acid.set_volume(settings.music_volume / 100.0)
             sfx.set_volume(settings.sfx_volume / 100.0)
             # Sync appearance settings to player objects
@@ -305,6 +309,9 @@ acid.set_target_bpm(90)
 # Determine whether a second local player is active
 p2_active = settings.num_players >= 2
 
+# Track the last Discord voice status sent to the server
+_last_voice_status: str = ""
+
 # Main loop
 running = True
 frame_count = 0
@@ -325,6 +332,14 @@ while running:
     else:
         acid.set_target_bpm(90 + 10 * _live_count)
     acid.tick(dt)
+    # Sync Discord voice state to server when it changes
+    _cur_voice = discord_voice.status
+    if _cur_voice != _last_voice_status and net_client.is_connected():
+        net_client.send_voice_state(
+            _cur_voice,
+            channel_id=settings.discord_channel_id,
+        )
+        _last_voice_status = _cur_voice
     # Draw background: sky gradient + far/mid buildings
     draw_background_pre_lane(screen, camera_x, bg_data, WIDTH, HEIGHT, LANE_TOP)
     # Fill below-lane foreground floor area

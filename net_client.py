@@ -120,6 +120,20 @@ class NetClient:
         if self.is_connected():
             self._send_queue.put({"type": "input", "inputs": inputs})
 
+    def send_voice_state(self, voice_status: str, channel_id: str = "") -> None:
+        """Notify the server of a Discord voice-state change.
+
+        *voice_status* should be one of the STATUS_* strings from
+        discord_voice.py (e.g. ``"In Channel"``, ``"Disconnected"``).
+        The server broadcasts a ``voice_event`` to all connected players.
+        """
+        if self.is_connected():
+            self._send_queue.put({
+                "type":         "voice_state",
+                "voice_status": voice_status,
+                "channel_id":   channel_id,
+            })
+
     def latest_state(self) -> dict | None:
         """Return the most recent state snapshot from the server, or None."""
         with self._state_lock:
@@ -230,6 +244,14 @@ class NetClient:
                 log.info("joined game as player_id=%s", self._player_id)
             else:
                 log.debug("server event: %s", msg)
+
+        elif mtype == "voice_event":
+            log.info(
+                "player %s voice_state: status=%r channel=%r",
+                msg.get("player_id"),
+                msg.get("voice_status"),
+                msg.get("channel_id"),
+            )
 
         elif mtype == "ping":
             # Respond immediately with a pong

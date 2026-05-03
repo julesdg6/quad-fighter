@@ -81,12 +81,20 @@ def _build_items() -> list:
         {"type": "net_action", "action": "connect",  "label": "Connect"},
         {"type": "net_status", "label": "Status"},
         {"type": "net_info",   "label": "Version"},
+        {"type": "section",    "label": "DISCORD VOICE"},
+        {"type": "toggle",     "key": "discord_voice_enabled", "label": "Enable Discord Voice"},
+        {"type": "discord_text", "key": "discord_client_id",  "label": "Application ID",
+         "max_len": 64, "hint": "Discord Application / Client ID from the Developer Portal"},
+        {"type": "discord_text", "key": "discord_channel_id", "label": "Voice Channel ID",
+         "max_len": 64, "hint": "Right-click a voice channel in Discord → Copy Channel ID"},
+        {"type": "discord_action", "action": "connect", "label": "Connect Voice"},
+        {"type": "discord_status", "label": "Voice Status"},
         {"type": "back", "label": "Back"},
     ]
 
 
 def _is_selectable(item: dict) -> bool:
-    return item["type"] not in ("section", "net_status", "net_info")
+    return item["type"] not in ("section", "net_status", "net_info", "discord_status")
 
 
 # ── Helper: draw gradient background ─────────────────────────────────────────
@@ -130,6 +138,7 @@ class OptionsScreen:
         settings: Settings,
         joystick,          # pygame.joystick.Joystick or None
         net_client=None,   # net_client.NetClient or None
+        discord_voice=None, # discord_voice.DiscordVoice or None
     ):
         self.screen   = screen
         self.width    = width
@@ -138,6 +147,7 @@ class OptionsScreen:
         self.settings = settings
         self.joystick = joystick
         self.net_client = net_client
+        self.discord_voice = discord_voice
         self.clock    = pygame.time.Clock()
 
         self._bg = pygame.Surface((width, height))
@@ -239,6 +249,44 @@ class OptionsScreen:
                             self._text_buf += ch
                     else:
                         if ch and ch.isprintable() and len(self._text_buf) < MAX_IP_LENGTH:
+                            self._text_buf += ch
+            return None
+
+        # ---- Waiting for Discord voice text input ---------------------------
+        if self._waiting == "discord_text":
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self._waiting = None
+                    self._wait_action = None
+                    self._text_buf = ""
+                elif event.key == pygame.K_RETURN:
+                    if self._wait_action:
+                        # max_len is stored on the item; look it up
+                        item = next(
+                            (it for it in self._items
+                             if it.get("type") == "discord_text"
+                             and it.get("key") == self._wait_action),
+                            None,
+                        )
+                        max_len = item.get("max_len", 64) if item else 64
+                        value = self._text_buf[:max_len]
+                        setattr(self.settings, self._wait_action, value)
+                    self._waiting = None
+                    self._wait_action = None
+                    self._text_buf = ""
+                elif event.key == pygame.K_BACKSPACE:
+                    self._text_buf = self._text_buf[:-1]
+                else:
+                    ch = event.unicode
+                    if ch and ch.isprintable():
+                        item = next(
+                            (it for it in self._items
+                             if it.get("type") == "discord_text"
+                             and it.get("key") == self._wait_action),
+                            None,
+                        )
+                        max_len = item.get("max_len", 64) if item else 64
+                        if len(self._text_buf) < max_len:
                             self._text_buf += ch
             return None
 
@@ -379,6 +427,12 @@ class OptionsScreen:
             self._text_buf = str(self.settings.server_port)
         elif item["type"] == "net_action":
             self._handle_net_action(item["action"])
+        elif item["type"] == "discord_text":
+            self._waiting = "discord_text"
+            self._wait_action = item["key"]
+            self._text_buf = getattr(self.settings, item["key"], "")
+        elif item["type"] == "discord_action":
+            self._handle_discord_action(item["action"])
         return None
 
     def _handle_net_action(self, action: str) -> None:
@@ -392,6 +446,19 @@ class OptionsScreen:
                 self.net_client.connect(
                     self.settings.server_ip,
                     self.settings.server_port,
+                )
+
+    def _handle_discord_action(self, action: str) -> None:
+        """Connect or disconnect Discord voice."""
+        if self.discord_voice is None:
+            return
+        if action == "connect":
+            if self.discord_voice.is_connected():
+                self.discord_voice.disconnect()
+            else:
+                self.discord_voice.connect(
+                    client_id=self.settings.discord_client_id,
+                    channel_id=self.settings.discord_channel_id,
                 )
 
     def _do_toggle(self, key: str) -> None:
@@ -449,6 +516,11 @@ class OptionsScreen:
         elif self._waiting in ("net_text", "net_port"):
             label = "IP" if self._waiting == "net_text" else "Port"
             msg = f"Enter {label}: {self._text_buf}_  (Enter confirm  Esc cancel)"
+            surf = self._font_hint.render(msg, True, COL_WAIT)
+            self.screen.blit(surf, (cx - surf.get_width() // 2, self.height - 28))
+        elif self._waiting == "discord_text":
+            field = self._wait_action.replace("discord_", "").replace("_", " ").title() if self._wait_action else "text"
+            msg = f"Enter {field}: {self._text_buf}_  (Enter confirm  Esc cancel)"
             surf = self._font_hint.render(msg, True, COL_WAIT)
             self.screen.blit(surf, (cx - surf.get_width() // 2, self.height - 28))
         else:
@@ -634,3 +706,60 @@ class OptionsScreen:
             info = f"v{GAME_VERSION}  build {BUILD_NUMBER}  protocol {PROTOCOL_VERSION}"
             info_surf = self._font_hint.render(info, True, COL_DIM)
             self.screen.blit(info_surf, (cx + 60, y + 4))
+
+        elif itype == "discord_text":
+            label_surf = self._font_item.render(item["label"], True, col)
+            self.screen.blit(label_surf, (cx - 200, y + 2))
+            editing = self._waiting == "discord_text" and self._wait_action == item["key"]
+            current_val = getattr(self.settings, item["key"], "")
+            display = (self._text_buf + "_") if editing else (current_val or "—")
+            val_col = COL_WAIT if editing else col
+            val_surf = self._font_item.render(display, True, val_col)
+            self.screen.blit(val_surf, (cx + 60, y + 2))
+            hint_text = item.get("hint", "")
+            if hint_text and selected:
+                hint_surf = self._font_hint.render(hint_text, True, COL_DIM)
+                self.screen.blit(hint_surf, (cx - 200, y + ITEM_HEIGHT - 4))
+
+        elif itype == "discord_action":
+            if self.discord_voice is not None and self.discord_voice.is_connected():
+                label_text = "Disconnect Voice"
+            else:
+                label_text = "Connect Voice"
+            surf = self._font_item.render(label_text, True, col)
+            self.screen.blit(surf, (cx - 200, y + 2))
+            if selected:
+                arrow = self._font_item.render("►", True, COL_SEL)
+                self.screen.blit(arrow, (cx - 200 - 22, y + 2))
+
+        elif itype == "discord_status":
+            label_surf = self._font_sec.render("Voice:", True, COL_SEC)
+            self.screen.blit(label_surf, (cx - 200, y + 4))
+            if self.discord_voice is not None:
+                status = self.discord_voice.status
+                error  = self.discord_voice.error_message
+                user   = self.discord_voice.discord_username
+            else:
+                status = "Disabled (no client)"
+                error  = ""
+                user   = ""
+            # Colour-code by status
+            if "Channel" in status:
+                status_col = (80, 220, 80)
+            elif "Discord Connected" in status:
+                status_col = (80, 180, 220)
+            elif "Error" in status or "not" in status.lower():
+                status_col = (220, 80, 80)
+            elif "Connecting" in status:
+                status_col = (220, 180, 60)
+            else:
+                status_col = COL_DIM
+            status_surf = self._font_item.render(status, True, status_col)
+            self.screen.blit(status_surf, (cx + 60, y + 4))
+            if user:
+                user_surf = self._font_hint.render(f"User: {user}", True, COL_DIM)
+                self.screen.blit(user_surf, (cx - 200, y + ITEM_HEIGHT + 2))
+            elif error:
+                err_short = error[:60] + ("…" if len(error) > 60 else "")
+                err_surf = self._font_hint.render(err_short, True, (220, 80, 80))
+                self.screen.blit(err_surf, (cx - 200, y + ITEM_HEIGHT + 2))
