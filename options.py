@@ -54,6 +54,9 @@ def _build_items() -> list:
         {"type": "audio",   "key": "sfx_volume",   "label": "SFX Volume"},
         {"type": "section", "label": "DISPLAY"},
         {"type": "toggle",  "key": "fullscreen",   "label": "Fullscreen"},
+        {"type": "section", "label": "GAMEPLAY"},
+        {"type": "toggle",  "key": "random_level",  "label": "Random Level",
+         "hint": "Spin a wheel to pick the next level and track scores across rounds"},
         {"type": "section", "label": "APPEARANCE"},
         {"type": "colour_pick", "key": "suit_colour_idx", "label": "Suit Colour",  "colours": SUIT_COLOURS},
         {"type": "colour_pick", "key": "hair_colour_idx", "label": "Hair Colour",  "colours": HAIR_COLOURS},
@@ -496,6 +499,10 @@ class OptionsScreen:
                 arrow_r = self._font_item.render("►", True, COL_SEL)
                 self.screen.blit(arrow_l, (cx + 60 - 22, y + 2))
                 self.screen.blit(arrow_r, (cx + 60 + val_surf.get_width() + 4, y + 2))
+            hint_text = item.get("hint", "")
+            if hint_text:
+                hint_surf = self._font_hint.render(hint_text, True, COL_DIM)
+                self.screen.blit(hint_surf, (cx - 200, y + ITEM_HEIGHT - 4))
 
         elif itype == "kb_bind":
             label_surf = self._font_item.render(item["label"], True, col)

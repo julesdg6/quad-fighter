@@ -21,6 +21,7 @@ from rolling_ball_level import RollingBallLevel
 from level_manager import LevelManager
 from version import GAME_VERSION, BUILD_NUMBER, PROTOCOL_VERSION
 from net_client import NetClient
+from level_randomizer import LevelRandomizer
 
 # Register all pluggable levels with the engine
 LevelManager.register("moto",         MotoLevel)
@@ -289,12 +290,28 @@ if QUAD_FIGHTER_AUTO_EXIT_FRAMES == 0:
             # Sync appearance settings to player objects
             _apply_appearance(settings)
         elif result in LevelManager.available_keys():
-            # Load and run any registered level by key
-            LevelManager.load(
-                result,
-                screen, WIDTH, HEIGHT, FPS, settings, font, acid, sfx,
-                joystick=joystick, joystick2=joystick2,
-            ).run()
+            if settings.random_level:
+                # Tournament mode: wheel picks each level; track scores.
+                randomizer = LevelRandomizer(
+                    screen, WIDTH, HEIGHT, FPS, settings, joystick=joystick,
+                )
+                level_key = randomizer.spin_wheel()
+                while level_key is not None:
+                    level_result = LevelManager.load(
+                        level_key,
+                        screen, WIDTH, HEIGHT, FPS, settings, font, acid, sfx,
+                        joystick=joystick, joystick2=joystick2,
+                    ).run()
+                    if level_result == "exit":
+                        break
+                    level_key = randomizer.run_post_round(level_result)
+            else:
+                # Load and run any registered level by key
+                LevelManager.load(
+                    result,
+                    screen, WIDTH, HEIGHT, FPS, settings, font, acid, sfx,
+                    joystick=joystick, joystick2=joystick2,
+                ).run()
             # Loop back to the splash after the level ends
         else:
             break  # "game" – proceed to gameplay
