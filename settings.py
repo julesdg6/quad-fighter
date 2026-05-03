@@ -90,6 +90,8 @@ class Settings:
         self.fullscreen: bool = False
         # Number of local players (1–4); additional players must join explicitly
         self.num_players: int = 1
+        # Tournament / random-level mode
+        self.random_level: bool = False
         # Discord voice chat
         self.discord_voice_enabled: bool = False
         self.discord_client_id:     str  = ""
@@ -124,6 +126,7 @@ class Settings:
             self.hair_colour_idx = int(data.get("hair_colour_idx", self.hair_colour_idx))
             self.fullscreen = bool(data.get("fullscreen", self.fullscreen))
             self.num_players = max(1, min(4, int(data.get("num_players", self.num_players))))
+            self.random_level = bool(data.get("random_level", self.random_level))
             self.discord_voice_enabled = bool(data.get("discord_voice_enabled", self.discord_voice_enabled))
             self.discord_client_id = str(data.get("discord_client_id", self.discord_client_id))
             self.discord_channel_id = str(data.get("discord_channel_id", self.discord_channel_id))
@@ -144,6 +147,7 @@ class Settings:
             "hair_colour_idx": self.hair_colour_idx,
             "fullscreen":      self.fullscreen,
             "num_players":  self.num_players,
+            "random_level": self.random_level,
             "discord_voice_enabled": self.discord_voice_enabled,
             "discord_client_id":     self.discord_client_id,
             "discord_channel_id":    self.discord_channel_id,

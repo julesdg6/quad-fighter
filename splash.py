@@ -35,6 +35,7 @@ MENU_ITEMS = [
     ("Gauntlet Mode",    "gauntlet"),
     ("Pang Mode",        "pang"),
     ("Rolling Ball",     "rolling_ball"),
+    ("R-Type Mode",      "rtype"),
     ("Options",          "options"),
 ]
 
