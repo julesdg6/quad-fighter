@@ -452,6 +452,31 @@ python server.py
 QUAD_SERVER_PORT=7777 python server.py
 ```
 
+### Unraid
+
+An Unraid Community Applications template is provided in the `unraid/` directory.
+
+**Quick deploy via Community Applications**
+
+1. In the Unraid web UI open **Apps → Community Applications**.
+2. Search for **Quad Fighter** or click *Add Container* and paste the template URL:
+   ```
+   https://raw.githubusercontent.com/julesdg6/quad-fighter/main/unraid/quad-fighter-server.xml
+   ```
+3. Adjust the port and environment variables as needed and click **Apply**.
+
+The template exposes:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Game Server Port | `7777` | Host TCP port clients connect to |
+| `QUAD_SERVER_PORT` | `7777` | Port inside the container (keep in sync) |
+| `QUAD_MAX_PLAYERS` | `4` | Maximum simultaneous connections |
+| `QUAD_TICK_RATE` | `30` | State broadcasts per second |
+
+The container image is `ghcr.io/julesdg6/quad-fighter-server:latest`.  
+Alternatively build locally with `docker build -t quad-fighter-server .` and set the *Repository* field in the template to `quad-fighter-server`.
+
 ---
 
 ## Adding to Steam
