@@ -97,6 +97,8 @@ _POWERUP_COLORS = {
 }
 _POWERUP_DURATION  = 600    # frames that timed power-ups last
 _POWERUP_DRIFT_SPD = 1.2    # leftward drift speed
+_POWERUP_RADIUS    = 12     # visual and collision radius of power-up capsule
+_ENEMY_RECOIL_DMG  = 5      # damage applied to enemy on player contact
 
 # ── Boss tuning ───────────────────────────────────────────────────────────────
 
@@ -105,6 +107,7 @@ _BOSS_PHASE2_HP    = 300
 _BOSS_SPEED        = 1.0
 _BOSS_RADIUS       = 55
 _BOSS_CORE_RADIUS  = 22
+_BOSS_CORE_FUZZ    = 4      # extra collision tolerance for boss core hits
 _BOSS_FIRE_CD      = 45
 
 # ── Terrain ───────────────────────────────────────────────────────────────────
@@ -503,8 +506,8 @@ class _PowerUp:
         cx = int(self.x)
         cy = int(self.y + math.sin(self.bob) * 5)
         col = _POWERUP_COLORS.get(self.kind, (255, 255, 255))
-        pygame.draw.circle(surf, col, (cx, cy), 12)
-        pygame.draw.circle(surf, (255, 255, 255), (cx, cy), 12, 2)
+        pygame.draw.circle(surf, col, (cx, cy), _POWERUP_RADIUS)
+        pygame.draw.circle(surf, (255, 255, 255), (cx, cy), _POWERUP_RADIUS, 2)
         # Letter label
         lbl = self.kind[0].upper()
         try:
@@ -1222,7 +1225,7 @@ class RTypeLevel(BaseLevel):
             # vs boss core
             if self._boss is not None and self._boss.alive and proj.alive:
                 dist = math.hypot(proj.x - self._boss.x, proj.y - self._boss.y)
-                if dist < proj.radius + _BOSS_CORE_RADIUS + 4:
+                if dist < proj.radius + _BOSS_CORE_RADIUS + _BOSS_CORE_FUZZ:
                     killed = self._boss.hit(proj.damage)
                     if not proj.pierce:
                         proj.alive = False
@@ -1257,7 +1260,7 @@ class RTypeLevel(BaseLevel):
                     continue
                 if math.hypot(p.x - en.x, p.y - en.y) < p.radius + en.radius:
                     dead = p.damage(en.contact_dmg)
-                    en.hit(5)   # slight recoil damage to enemy
+                    en.hit(_ENEMY_RECOIL_DMG)   # slight recoil damage to enemy
                     self._spawn_explosion(
                         (p.x + en.x) / 2, (p.y + en.y) / 2, 8)
                     self._sfx("player_hurt")
@@ -1279,7 +1282,7 @@ class RTypeLevel(BaseLevel):
 
             # Power-up collection
             for pu in self._powerups:
-                if math.hypot(p.x - pu.x, p.y - pu.y) < p.radius + 12:
+                if math.hypot(p.x - pu.x, p.y - pu.y) < p.radius + _POWERUP_RADIUS:
                     p.apply_powerup(pu.kind)
                     pu.alive = False
                     self._show_msg(pu.kind.upper() + "!", (80, 255, 200), 90)
