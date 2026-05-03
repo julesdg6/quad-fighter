@@ -65,12 +65,13 @@ def _ipc_paths() -> list[str]:
             paths.append(f"\\\\.\\pipe\\discord-ipc-{n}")
     else:
         # Unix: check several candidate base directories
+        uid_runtime = f"/run/user/{os.getuid()}" if hasattr(os, "getuid") else None
         bases = [
             os.environ.get("XDG_RUNTIME_DIR"),
             os.environ.get("TMPDIR"),
             os.environ.get("TMP"),
             os.environ.get("TEMP"),
-            "/run/user/" + str(os.getuid()) if hasattr(os, "getuid") else None,
+            uid_runtime,
             "/tmp",
         ]
         for base in bases:

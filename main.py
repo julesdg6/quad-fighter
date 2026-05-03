@@ -311,6 +311,8 @@ p2_active = settings.num_players >= 2
 
 # Track the last Discord voice status sent to the server
 _last_voice_status: str = ""
+_voice_check_timer: int = 0
+_VOICE_CHECK_INTERVAL = 60  # check once per second (at 60 FPS)
 
 # Main loop
 running = True
@@ -332,14 +334,17 @@ while running:
     else:
         acid.set_target_bpm(90 + 10 * _live_count)
     acid.tick(dt)
-    # Sync Discord voice state to server when it changes
-    _cur_voice = discord_voice.status
-    if _cur_voice != _last_voice_status and net_client.is_connected():
-        net_client.send_voice_state(
-            _cur_voice,
-            channel_id=settings.discord_channel_id,
-        )
-        _last_voice_status = _cur_voice
+    # Sync Discord voice state to server – check once per second to reduce lock contention
+    _voice_check_timer += 1
+    if _voice_check_timer >= _VOICE_CHECK_INTERVAL:
+        _voice_check_timer = 0
+        _cur_voice = discord_voice.status
+        if _cur_voice != _last_voice_status and net_client.is_connected():
+            net_client.send_voice_state(
+                _cur_voice,
+                channel_id=settings.discord_channel_id,
+            )
+            _last_voice_status = _cur_voice
     # Draw background: sky gradient + far/mid buildings
     draw_background_pre_lane(screen, camera_x, bg_data, WIDTH, HEIGHT, LANE_TOP)
     # Fill below-lane foreground floor area
