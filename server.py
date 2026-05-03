@@ -2,9 +2,9 @@
 
 Can run standalone or inside Docker::
 
-    python server.py                         # defaults: port 7777, max 4 players
-    QUAD_SERVER_PORT=7777 python server.py
-    docker run -p 7777:7777 quad-fighter-server
+    python server.py                         # defaults: port 9046, max 4 players
+    QUAD_SERVER_PORT=9046 python server.py
+    docker run -p 9046:9046 quad-fighter-server
 
 Protocol: newline-delimited JSON over TCP.
 
@@ -38,7 +38,7 @@ from version import GAME_VERSION, PROTOCOL_VERSION, SERVER_VERSION
 # ── Configuration (environment variables) ────────────────────────────────────
 
 SERVER_HOST      = os.environ.get("QUAD_SERVER_HOST", "0.0.0.0")
-SERVER_PORT      = int(os.environ.get("QUAD_SERVER_PORT", "7777"))
+SERVER_PORT      = int(os.environ.get("QUAD_SERVER_PORT", "9046"))
 MAX_PLAYERS      = int(os.environ.get("QUAD_MAX_PLAYERS", "4"))
 TICK_RATE        = int(os.environ.get("QUAD_TICK_RATE", "30"))   # state broadcasts / second
 PING_INTERVAL    = 10.0   # seconds between keepalive pings

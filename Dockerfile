@@ -4,7 +4,7 @@
 #   docker build -t quad-fighter-server .
 #
 # Run:
-#   docker run -p 7777:7777 quad-fighter-server
+#   docker run -p 9046:9046 quad-fighter-server
 #
 # Or with docker-compose:
 #   docker-compose up
@@ -22,10 +22,10 @@ COPY server.py version.py ./
 # No external dependencies required for the server (uses stdlib only)
 
 ENV QUAD_SERVER_HOST=0.0.0.0
-ENV QUAD_SERVER_PORT=7777
+ENV QUAD_SERVER_PORT=9046
 ENV QUAD_MAX_PLAYERS=4
 ENV QUAD_TICK_RATE=30
 
-EXPOSE 7777
+EXPOSE 9046
 
 CMD ["python", "-u", "server.py"]

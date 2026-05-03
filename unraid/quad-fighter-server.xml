@@ -22,14 +22,14 @@
   <!-- TCP port exposed to the host -->
   <Config
     Name="Game Server Port"
-    Target="7777"
-    Default="7777"
+    Target="9046"
+    Default="9046"
     Mode="tcp"
     Description="Host TCP port that Quad Fighter clients connect to."
     Type="Port"
     Display="always"
     Required="true"
-    Mask="false">7777</Config>
+    Mask="false">9046</Config>
 
   <!-- Environment variables -->
   <Config
@@ -46,13 +46,13 @@
   <Config
     Name="QUAD_SERVER_PORT"
     Target="QUAD_SERVER_PORT"
-    Default="7777"
+    Default="9046"
     Mode=""
     Description="TCP port the server listens on inside the container. Keep in sync with the port mapping above."
     Type="Variable"
     Display="always"
     Required="false"
-    Mask="false">7777</Config>
+    Mask="false">9046</Config>
 
   <Config
     Name="QUAD_MAX_PLAYERS"
