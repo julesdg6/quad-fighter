@@ -13,6 +13,7 @@ Client → Server message types
 hello       – version handshake (must be first message)
 join        – request to join the session as a player
 input       – per-frame input snapshot
+voice_state – Discord voice-chat status update
 disconnect  – graceful goodbye
 pong        – reply to a server ping
 
@@ -22,6 +23,7 @@ welcome     – handshake accepted; carries player_id
 reject      – handshake or join denied; carries reason + message
 state       – authoritative game-state snapshot (broadcast every tick)
 event       – discrete game event (hit, death, pickup …)
+voice_event – broadcast when a player's Discord voice state changes
 ping        – keepalive probe
 """
 
@@ -76,6 +78,10 @@ class PlayerState:
         # Latest raw inputs from this client
         self.inputs: dict = {}
 
+        # Discord voice state
+        self.voice_status:  str = ""
+        self.voice_channel: str = ""
+
         # Last time we received any message from this client
         self.last_seen: float = time.monotonic()
 
@@ -88,6 +94,8 @@ class PlayerState:
             "facing":     self.facing,
             "health":     self.health,
             "alive":      self.alive,
+            "voice_status":  self.voice_status,
+            "voice_channel": self.voice_channel,
         }
 
 
@@ -232,6 +240,8 @@ class ClientConnection:
             return await self._handle_join(msg)
         if mtype == "input":
             self._handle_input(msg)
+        elif mtype == "voice_state":
+            await self._handle_voice_state(msg)
         elif mtype == "pong":
             self._last_pong_recv = time.monotonic()
         elif mtype == "disconnect":
@@ -321,6 +331,27 @@ class ClientConnection:
         if self.player:
             self.player.inputs      = msg.get("inputs", {})
             self.player.last_seen   = time.monotonic()
+
+    async def _handle_voice_state(self, msg: dict) -> None:
+        """Update this player's Discord voice state and broadcast to others."""
+        if not self.player:
+            return
+        voice_status  = str(msg.get("voice_status", ""))
+        voice_channel = str(msg.get("channel_id",   ""))
+        self.player.voice_status  = voice_status
+        self.player.voice_channel = voice_channel
+        self.player.last_seen     = time.monotonic()
+        log.info(
+            "player %s voice_state: status=%r channel=%r",
+            self.player.player_id, voice_status, voice_channel,
+        )
+        await self._server.broadcast({
+            "type":         "voice_event",
+            "player_id":    self.player.player_id,
+            "player_name":  self.player.name,
+            "voice_status": voice_status,
+            "channel_id":   voice_channel,
+        })
 
     # ── Keepalive ─────────────────────────────────────────────────────────────
 

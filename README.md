@@ -33,10 +33,11 @@ Inspired by classic co-op brawlers like TMNT and Double Dragon, it uses fully pr
 9. [Co-op (Local 2-Player)](#co-op-local-2-player)
 10. [Options Screen](#options-screen)
 11. [Network Multiplayer](#network-multiplayer)
-12. [Running the Server with Docker](#running-the-server-with-docker)
-13. [Adding to Steam](#adding-to-steam)
-14. [Mac Setup Guide](#mac-setup-guide)
-15. [Screenshots](#screenshots)
+12. [Discord Voice Chat](#discord-voice-chat)
+13. [Running the Server with Docker](#running-the-server-with-docker)
+14. [Adding to Steam](#adding-to-steam)
+15. [Mac Setup Guide](#mac-setup-guide)
+16. [Screenshots](#screenshots)
 
 ---
 
@@ -399,6 +400,57 @@ Access **Options** from the main menu.  All settings are saved automatically to 
 | **Keyboard Controls** | Rebind every action for Player 1 keyboard |
 | **Controller** | Rebind every action for the gamepad |
 | **Network** | Server IP address, server port, Connect button, connection status |
+
+---
+
+## Discord Voice Chat
+
+Quad Fighter integrates with the **Discord desktop application** running on your machine.  
+When enabled, the game can automatically move you into a specified Discord voice channel when you start playing and report your voice state to the authoritative server so all players can see who is in voice chat.
+
+> **How it works**  
+> The game connects to Discord's local IPC socket (the same mechanism used by Rich Presence / Discord Game SDK).  
+> No extra Python dependencies are required – the IPC protocol is implemented in `discord_voice.py` using only the standard library.  
+> Discord must be running on the player's machine.
+
+### Setup
+
+1. **Create a Discord Application**
+   - Go to the [Discord Developer Portal](https://discord.com/developers/applications)
+   - Click **New Application** and give it a name (e.g. "Quad Fighter")
+   - Copy the **Application ID** (also called Client ID) from the *General Information* page
+
+2. **Get a Voice Channel ID**
+   - Open Discord and navigate to the voice channel your squad uses
+   - Right-click the channel name → **Copy Channel ID**  
+     *(You must have Developer Mode enabled in Discord Settings → Advanced → Developer Mode)*
+
+3. **Configure in-game**
+   - Open **Options** from the main menu
+   - Scroll to the **Discord Voice** section
+   - Toggle **Enable Discord Voice** → ON
+   - Enter your **Application ID**
+   - Enter your **Voice Channel ID**
+   - Select **Connect Voice** and press Enter
+
+4. The **Voice Status** row updates live:
+   - `Connecting…` – IPC handshake in progress
+   - `Discord Connected` – authenticated, not yet in a channel
+   - `In Channel` – active in the voice channel
+   - `Discord not running` – Discord desktop app is not open
+   - `Error` – see the message below the status line
+
+### Protocol integration
+
+When connected to a game server, each client's voice state is included in the authoritative state snapshot (`voice_status`, `voice_channel` fields inside each player entry).  
+Transitions (join / leave) are also broadcast as `voice_event` messages so clients can display a notification immediately.
+
+### Platform support
+
+| Platform | IPC path |
+|----------|----------|
+| macOS / Linux | `$XDG_RUNTIME_DIR/discord-ipc-0` or `/tmp/discord-ipc-0` |
+| Windows 10+ | `\\.\pipe\discord-ipc-0` (requires Python 3.9+, build 17063+) |
 
 ---
 

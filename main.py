@@ -22,6 +22,7 @@ from rtype_level import RTypeLevel
 from level_manager import LevelManager
 from version import GAME_VERSION, BUILD_NUMBER, PROTOCOL_VERSION
 from net_client import NetClient
+from discord_voice import DiscordVoice
 from level_randomizer import LevelRandomizer
 
 # Register all pluggable levels with the engine
@@ -45,6 +46,9 @@ print(f"Quad Fighter  v{GAME_VERSION}  build {BUILD_NUMBER}  protocol {PROTOCOL_
 
 # Network client (non-blocking; connect from the options screen)
 net_client = NetClient()
+
+# Discord voice chat (connect from the options screen)
+discord_voice = DiscordVoice()
 
 # Detect first connected joystick (Xbox controller or similar)
 def _init_joystick():
@@ -286,7 +290,7 @@ if QUAD_FIGHTER_AUTO_EXIT_FRAMES == 0:
     while True:
         result = SplashScreen(screen, WIDTH, HEIGHT, FPS, joystick=joystick).run()
         if result == "options":
-            OptionsScreen(screen, WIDTH, HEIGHT, FPS, settings, joystick=joystick, net_client=net_client).run(acid, sfx)
+            OptionsScreen(screen, WIDTH, HEIGHT, FPS, settings, joystick=joystick, net_client=net_client, discord_voice=discord_voice).run(acid, sfx)
             acid.set_volume(settings.music_volume / 100.0)
             sfx.set_volume(settings.sfx_volume / 100.0)
             # Sync appearance settings to player objects
@@ -324,6 +328,11 @@ acid.set_target_bpm(90)
 # Determine whether a second local player is active
 p2_active = settings.num_players >= 2
 
+# Track the last Discord voice status sent to the server
+_last_voice_status: str = ""
+_voice_check_timer: int = 0
+_VOICE_CHECK_INTERVAL = 60  # check once per second (at 60 FPS)
+
 # Main loop
 running = True
 frame_count = 0
@@ -344,6 +353,17 @@ while running:
     else:
         acid.set_target_bpm(90 + 10 * _live_count)
     acid.tick(dt)
+    # Sync Discord voice state to server – check once per second to reduce lock contention
+    _voice_check_timer += 1
+    if _voice_check_timer >= _VOICE_CHECK_INTERVAL:
+        _voice_check_timer = 0
+        _cur_voice = discord_voice.status
+        if _cur_voice != _last_voice_status and net_client.is_connected():
+            net_client.send_voice_state(
+                _cur_voice,
+                channel_id=settings.discord_channel_id,
+            )
+            _last_voice_status = _cur_voice
     # Draw background: sky gradient + far/mid buildings
     draw_background_pre_lane(screen, camera_x, bg_data, WIDTH, HEIGHT, LANE_TOP)
     # Fill below-lane foreground floor area

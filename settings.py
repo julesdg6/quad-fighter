@@ -92,6 +92,10 @@ class Settings:
         self.num_players: int = 1
         # Tournament / random-level mode
         self.random_level: bool = False
+        # Discord voice chat
+        self.discord_voice_enabled: bool = False
+        self.discord_client_id:     str  = ""
+        self.discord_channel_id:    str  = ""
 
     # ── Persistence ───────────────────────────────────────────────────────────
 
@@ -123,6 +127,9 @@ class Settings:
             self.fullscreen = bool(data.get("fullscreen", self.fullscreen))
             self.num_players = max(1, min(4, int(data.get("num_players", self.num_players))))
             self.random_level = bool(data.get("random_level", self.random_level))
+            self.discord_voice_enabled = bool(data.get("discord_voice_enabled", self.discord_voice_enabled))
+            self.discord_client_id = str(data.get("discord_client_id", self.discord_client_id))
+            self.discord_channel_id = str(data.get("discord_channel_id", self.discord_channel_id))
         except Exception:
             pass  # corrupt file – use defaults
 
@@ -141,6 +148,9 @@ class Settings:
             "fullscreen":      self.fullscreen,
             "num_players":  self.num_players,
             "random_level": self.random_level,
+            "discord_voice_enabled": self.discord_voice_enabled,
+            "discord_client_id":     self.discord_client_id,
+            "discord_channel_id":    self.discord_channel_id,
         }
         try:
             with open(path, "w", encoding="utf-8") as fh:
